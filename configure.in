@@ -33,15 +33,15 @@ esac
 
 
 AM_INIT_AUTOMAKE([libzrtp], [1.15])
-AX_PREFIX_CONFIG_H(../../include/zrtp_config_unix.h,ZRTP,config/config.h)
+AX_PREFIX_CONFIG_H(include/zrtp_config_unix.h,ZRTP,config/config.h)
 
 CFLAGS="$CFLAGS -Wno-unused-parameter -fno-strict-aliasing -fPIC -DZRTP_AUTOMAKE=1"
 
 # Configuring external libraries
 echo "========================= configuring bnlib =============================="
-cd ./../../third_party/bnlib
+cd third_party/bnlib
 ./configure CFLAGS="$CFLAGS"
-cd ../../projects/gnu
+cd ../..
 echo "================================ done  ==================================="
 
 # Checks for programs.
@@ -93,4 +93,4 @@ fi
 AC_SUBST(ENABLE_EC)
 
 # Genearte Makefiles
-AC_OUTPUT([Makefile build/Makefile build/test/Makefile])
+AC_OUTPUT([Makefile])
