@@ -403,6 +403,8 @@ void zrtp_test_endpoint_config_defaults(zrtp_test_endpoint_cfg_t* cfg) {
 	cfg->zrtp.is_mitm = 0;
 	cfg->zrtp.lic_mode = ZRTP_LICENSE_MODE_ACTIVE;
 
+	cfg->zrtp.cache_type = ZRTP_CACHE_FILE;
+
 	cfg->zrtp.cb.event_cb.on_zrtp_secure			= &on_zrtp_secure;
 	cfg->zrtp.cb.event_cb.on_zrtp_security_event	= &on_zrtp_event;
 	cfg->zrtp.cb.event_cb.on_zrtp_protocol_event	= &on_zrtp_event;
@@ -414,11 +416,14 @@ zrtp_status_t zrtp_test_endpoint_create(zrtp_test_endpoint_cfg_t* cfg,
 										zrtp_test_id_t* id) {
 	zrtp_status_t s;
 	unsigned i;
-	char cache_file_path[ZRTP_TEST_STR_LEN];
+
 	zrtp_endpoint_t *new_endpoint;
 
 	if (g_test_endpoints_count >= K_ZRTP_TEST_MAX_ENDPOINTS)
 		return zrtp_status_alloc_fail;
+
+	/* Generate random ZID */
+	zrtp_randstr2(cfg->zrtp.zid, sizeof(zrtp_zid_t));
 
 	new_endpoint = &g_test_endpoints[g_test_endpoints_count++];
 	zrtp_memset(new_endpoint, 0, sizeof(zrtp_endpoint_t));
@@ -431,17 +436,29 @@ zrtp_status_t zrtp_test_endpoint_create(zrtp_test_endpoint_cfg_t* cfg,
 
 	new_endpoint->id = g_endpoints_counter++;
 
+	/* Generate random ZID and copy it to libzrtp config */
+	zrtp_randstr2(new_endpoint->zid, sizeof(new_endpoint->zid));
+	zrtp_memcpy(new_endpoint->cfg.zrtp.zid, new_endpoint->zid, sizeof(zrtp_zid_t));
+
 	/* Adjust cache file path so each endpoint will use it's own file. */
-	sprintf(cache_file_path, "./%s_cache.dat", name);
-	zrtp_zstrcpyc(ZSTR_GV(new_endpoint->cfg.zrtp.def_cache_path), cache_file_path);
+	if (cfg->zrtp.cache_type == ZRTP_CACHE_FILE) {
+		char cache_file_path[ZRTP_TEST_STR_LEN];
+
+		sprintf(cache_file_path, "./%s_cache.dat", name);
+
+		new_endpoint->cfg.zrtp.cache_type = ZRTP_CACHE_FILE;
+		new_endpoint->cfg.zrtp.cache_file_cfg.cache_auto_store = 1;
+		strcpy(new_endpoint->cfg.zrtp.cache_file_cfg.cache_path, cache_file_path);
+
+		remove(cache_file_path);
+	} else {
+		return zrtp_status_bad_param;
+	}
 
 	/* Initialize libzrtp engine for this endpoint */
 	s = zrtp_init(&new_endpoint->cfg.zrtp, &new_endpoint->zrtp);
 	if (zrtp_status_ok == s) {
 		*id = new_endpoint->id;
-
-		/* Generate random ZID */
-		zrtp_randstr(new_endpoint->zrtp, new_endpoint->zid, sizeof(new_endpoint->zid));
 	}
 
 	/* Create Input queue*/
@@ -495,7 +512,8 @@ zrtp_status_t zrtp_test_endpoint_destroy(zrtp_test_id_t id) {
 			s = zrtp_down(endpoint->zrtp);
 
 		/* Clean-up ZRTP cache after ourselves */
-		remove(endpoint->cfg.zrtp.def_cache_path.buffer);
+		if (endpoint->cfg.zrtp.cache_type == ZRTP_CACHE_FILE)
+			remove(endpoint->cfg.zrtp.cache_file_cfg.cache_path);
 	} else {
 		s = zrtp_status_fail;
 	}
@@ -554,7 +572,6 @@ zrtp_status_t zrtp_test_session_create(zrtp_test_id_t endpoint_id,
 
 	s = zrtp_session_init(the_endpoint->zrtp,
 						  &cfg->zrtp,
-						  the_endpoint->zid,
 						  cfg->role,
 						  &the_session->zrtp);
 

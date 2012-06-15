@@ -14,6 +14,8 @@ libzrtp_includedir=$(includedir)/libzrtp
 libzrtp_include_HEADERS = \
 					$(TOP_SRCDIR)/zrtp.h \
 					$(TOP_SRCDIR)/zrtp_base.h \
+					$(TOP_SRCDIR)/zrtp_cache.h \
+					$(TOP_SRCDIR)/zrtp_cache_file.h \
 					$(TOP_SRCDIR)/zrtp_config.h \
 					$(TOP_SRCDIR)/zrtp_config_user.h \
 					$(TOP_SRCDIR)/zrtp_config_unix.h \
@@ -22,7 +24,6 @@ libzrtp_include_HEADERS = \
 					$(TOP_SRCDIR)/zrtp_error.h \
 					$(TOP_SRCDIR)/zrtp_iface.h \
 					$(TOP_SRCDIR)/zrtp_iface_scheduler.h \
-					$(TOP_SRCDIR)/zrtp_iface_cache.h \
 					$(TOP_SRCDIR)/zrtp_iface_system.h \
 					$(TOP_SRCDIR)/zrtp_legal.h \
 					$(TOP_SRCDIR)/zrtp_list.h \

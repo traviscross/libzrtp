@@ -186,8 +186,6 @@ zrtp_status_t zrtp_process_rtp(zrtp_stream_t *stream, char* packet, unsigned int
 	return zrtp_status_ok;
 }
 
-/*----------------------------------------------------------------------------*/
-extern int _send_message(zrtp_stream_t* stream, zrtp_msg_type_t type, const void* message, uint32_t ssrc);
 zrtp_status_t zrtp_process_srtp(zrtp_stream_t *stream, char* packet, unsigned int* length)
 {
     zrtp_rtp_info_t info;
@@ -214,7 +212,7 @@ zrtp_status_t zrtp_process_srtp(zrtp_stream_t *stream, char* packet, unsigned in
 		zrtp_packet_zfonepingack_t pingack;
 		
 		zrtp_memcpy(pingack.version, ZRTP_ZFONE_PROTOCOL_VERSION, 4);
-		zrtp_memcpy(pingack.endpointhash, stream->session->zid.buffer, sizeof(pingack.endpointhash));
+		zrtp_memcpy(pingack.endpointhash, stream->session->zrtp->zid.buffer, sizeof(pingack.endpointhash));
 		zrtp_memcpy(pingack.peerendpointhash, ping->endpointhash, sizeof(pingack.endpointhash));
 		pingack.peerssrc = info.ssrc;
 		

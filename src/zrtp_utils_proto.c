@@ -26,35 +26,19 @@ zrtp_status_t _zrtp_prepare_secrets(zrtp_session_t* session)
 			uint32_t verifiedflag = 0;
 			
 			session->secrets.rs1->_cachedflag  = 0;
-			session->secrets.rs2->_cachedflag  = 0;		
-			if (session->zrtp->cb.cache_cb.on_get) {
-				s = session->zrtp->cb.cache_cb.on_get( ZSTR_GV(session->zid),
-													   ZSTR_GV(session->peer_zid),
-													   session->secrets.rs1,
-													   0);
-				session->secrets.rs1->_cachedflag = (zrtp_status_ok == s);
-				
-				s = session->zrtp->cb.cache_cb.on_get( ZSTR_GV(session->zid),
-													   ZSTR_GV(session->peer_zid),
-													   session->secrets.rs2,
-													   1);
-				session->secrets.rs2->_cachedflag = (zrtp_status_ok == s);			 			 
-			}
-			
-			if (session->zrtp->cb.cache_cb.on_get_verified) {
-				s = session->zrtp->cb.cache_cb.on_get_verified( ZSTR_GV(session->zid),
-															   ZSTR_GV(session->peer_zid),
-															   &verifiedflag);
-			}
+			session->secrets.rs2->_cachedflag  = 0;
 
-			if (session->zrtp->cb.cache_cb.on_get_mitm) {
-				s = session->zrtp->cb.cache_cb.on_get_mitm( ZSTR_GV(session->zid),
-															ZSTR_GV(session->peer_zid),
-															session->secrets.pbxs);
-				session->secrets.pbxs->_cachedflag = (zrtp_status_ok == s);
-			} else {			
-				session->secrets.pbxs->_cachedflag = 0;
-			}
+			s = zrtp_cache_get(session->zrtp->cache, ZSTR_GV(session->peer_zid), session->secrets.rs1, 0);
+			session->secrets.rs1->_cachedflag = (zrtp_status_ok == s);
+				
+			s = zrtp_cache_get(session->zrtp->cache, ZSTR_GV(session->peer_zid), session->secrets.rs2, 1);
+			session->secrets.rs2->_cachedflag = (zrtp_status_ok == s);
+
+			s = zrtp_cache_get_mitm(session->zrtp->cache, ZSTR_GV(session->peer_zid), session->secrets.pbxs);
+			session->secrets.pbxs->_cachedflag = (zrtp_status_ok == s);
+			
+			s = zrtp_cache_get_verified(session->zrtp->cache, ZSTR_GV(session->peer_zid), &verifiedflag);
+
 			
 			/* Duplicate all secrets flags to zrtp-context */
 			session->secrets.cached |= session->secrets.rs1->_cachedflag ? ZRTP_BIT_RS1 : 0;
@@ -65,7 +49,7 @@ zrtp_status_t _zrtp_prepare_secrets(zrtp_session_t* session)
 			char buff[128];
 			char buff2[128];
 			ZRTP_LOG(3,(_ZTU_,"\tRestoring Secrets: lZID=%s rZID=%s. V=%d sID=%u\n",
-						hex2str(session->zid.buffer, session->zid.length, buff, sizeof(buff)),
+						hex2str(session->zrtp->zid.buffer, session->zrtp->zid.length, buff, sizeof(buff)),
 						hex2str(session->peer_zid.buffer, session->peer_zid.length, buff2, sizeof(buff2)),
 						verifiedflag,
 						session->id));
@@ -134,7 +118,7 @@ int _zrtp_can_start_stream(zrtp_stream_t* stream, zrtp_stream_t **conc, zrtp_str
     {
 		zrtp_session_t* tmp_sctx = mlist_get_struct(zrtp_session_t, _mlist, node);
 		
-		if ( !zrtp_zstrcmp(ZSTR_GV(tmp_sctx->zid), ZSTR_GV(stream->session->zid)) &&
+		if ( !zrtp_zstrcmp(ZSTR_GV(tmp_sctx->zrtp->zid), ZSTR_GV(stream->session->zrtp->zid)) &&
 			!zrtp_zstrcmp(ZSTR_GV(tmp_sctx->peer_zid), ZSTR_GV(stream->session->peer_zid)) )
 		{
 			int i = 0;
@@ -330,10 +314,8 @@ zrtp_stream_mode_t _zrtp_define_stream_mode(zrtp_stream_t* stream)
 					break;
 				}
 				
-				if (ZRTP_IS_STREAM_PRESH(stream) && session->zrtp->cb.cache_cb.on_presh_counter_get) {					
-					session->zrtp->cb.cache_cb.on_presh_counter_get( ZSTR_GV(session->zid),
-																	ZSTR_GV(session->peer_zid),
-																	&calls_counter);
+				if (ZRTP_IS_STREAM_PRESH(stream)) {
+					zrtp_cache_get_presh_counter(session->zrtp->cache, ZSTR_GV(session->peer_zid), &calls_counter);
 					if (calls_counter >= ZRTP_PRESHARED_MAX_ALLOWED) {
 						ZRTP_LOG(3,(_ZTU_,"\tDefine stream mode: user wants PRESHARED but Preshared"
 									"calls counter reached the maximum value (ID=%u) -  Reset to DH.\n", stream->id));
@@ -341,11 +323,7 @@ zrtp_stream_mode_t _zrtp_define_stream_mode(zrtp_stream_t* stream)
 					}
 				}
 				
-				if (session->zrtp->cb.cache_cb.on_get_verified) {
-					session->zrtp->cb.cache_cb.on_get_verified( ZSTR_GV(session->zid),
-															   ZSTR_GV(session->peer_zid),
-															   &verifiedflag);
-				}
+				zrtp_cache_get_verified(session->zrtp->cache, ZSTR_GV(session->peer_zid), &verifiedflag);
 				
 				if (!session->secrets.rs1->_cachedflag || !verifiedflag) {
 					ZRTP_LOG(3,(_ZTU_,"\tDefine stream mode: user wants PRESHARED but we HAVE "
@@ -524,22 +502,17 @@ zrtp_status_t zrtp_verified_set( zrtp_global_t *zrtp,
 	mlist_for_each(node, &zrtp->sessions_head)
 	{
 		zrtp_session_t *session = mlist_get_struct(zrtp_session_t, _mlist, node);
-		if ( ( !zrtp_zstrcmp(ZSTR_GV(session->zid), ZSTR_GVP(zid1)) ||
-			  !zrtp_zstrcmp(ZSTR_GV(session->zid), ZSTR_GVP(zid2)) ) &&
+		if ( ( !zrtp_zstrcmp(ZSTR_GV(session->zrtp->zid), ZSTR_GVP(zid1)) ||
+			  !zrtp_zstrcmp(ZSTR_GV(session->zrtp->zid), ZSTR_GVP(zid2)) ) &&
 			( !zrtp_zstrcmp(ZSTR_GV(session->peer_zid), ZSTR_GVP(zid1)) ||
 			 !zrtp_zstrcmp(ZSTR_GV(session->peer_zid), ZSTR_GVP(zid2)) ) )
 		{
-			if (session->zrtp->cb.cache_cb.on_set_verified) {
-				session->zrtp->cb.cache_cb.on_set_verified(ZSTR_GVP(zid1), ZSTR_GVP(zid2), verified);
-			}
 			
+			zrtp_cache_set_verified(session->zrtp->cache, ZSTR_GVP(zid2), verified);
+
 			if (session->mitm_alert_detected) {
 				session->mitm_alert_detected = 0;
-				if (session->zrtp->cb.cache_cb.on_put) {
-					session->zrtp->cb.cache_cb.on_put( ZSTR_GV(session->zid),
-													   ZSTR_GV(session->peer_zid),
-													   session->secrets.rs1);
-				}
+				zrtp_cache_put(session->zrtp->cache, ZSTR_GV(session->peer_zid), session->secrets.rs1);
 			}
 		}
 	}

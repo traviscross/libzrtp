@@ -16,6 +16,8 @@ lib_LIBRARIES = libzrtp.a
 libzrtp_a_LIBADD = $(TOP_SRCDIR)/third_party/bnlib/libbn.a
 
 libzrtp_a_SOURCES = $(TOP_SRCDIR)/src/zrtp.c \
+					$(TOP_SRCDIR)/src/zrtp_cache.c \
+					$(TOP_SRCDIR)/src/zrtp_cache_file.c \
 					$(TOP_SRCDIR)/src/zrtp_crc.c \
 					$(TOP_SRCDIR)/src/zrtp_crypto_aes.c \
 					$(TOP_SRCDIR)/src/zrtp_crypto_atl.c \
@@ -46,7 +48,6 @@ libzrtp_a_SOURCES = $(TOP_SRCDIR)/src/zrtp.c \
 					$(TOP_SRCDIR)/third_party/bgaes/sha1.c \
 					$(TOP_SRCDIR)/third_party/bgaes/sha2.c\
 					\
-					$(TOP_SRCDIR)/src/zrtp_iface_cache.c \
 					$(TOP_SRCDIR)/src/zrtp_engine_driven.c
 if ZRTP_BUILD_ENTERPRISE
 libzrtp_a_SOURCES +=$(TOP_SRCDIR)/src/zrtp_crypto_ec.c \
