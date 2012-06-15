@@ -34,6 +34,8 @@ void zrtp_config_defaults(zrtp_config_t* config)
 	ZSTR_SET_EMPTY(config->def_cache_path);
 	zrtp_zstrncpyc(ZSTR_GV(config->def_cache_path), "./zrtp_def_cache_path.dat", 25);
 
+	config->cache_auto_store = 1; /* cache auto flushing should be enabled by default */
+
 #if (defined(ZRTP_USE_BUILTIN_CACHE) && (ZRTP_USE_BUILTIN_CACHE == 1))
 	config->cb.cache_cb.on_init					= zrtp_def_cache_init;
 	config->cb.cache_cb.on_down					= zrtp_def_cache_down;
@@ -81,6 +83,7 @@ zrtp_status_t zrtp_init(zrtp_config_t* config, zrtp_global_t** zrtp)
 	ZSTR_SET_EMPTY(new_zrtp->def_cache_path);
 	zrtp_zstrcpy(ZSTR_GV(new_zrtp->def_cache_path), ZSTR_GV(config->def_cache_path));
 	zrtp_memcpy(&new_zrtp->cb, &config->cb, sizeof(zrtp_callback_t));
+	new_zrtp->cache_auto_store = config->cache_auto_store;
         
 	ZSTR_SET_EMPTY(new_zrtp->client_id);
 	zrtp_memset(new_zrtp->client_id.buffer, ' ', sizeof(zrtp_client_id_t));
@@ -1093,6 +1096,7 @@ char* zrtp_comp_id2type(zrtp_crypto_comp_t type, uint8_t id)
 		case ZRTP_HASH_SHA384: return ZRTP_S384;
 		default: return "Unkn";
 		}
+		break;
 	    
 	case ZRTP_CC_SAS:
 		switch (id)
@@ -1101,6 +1105,7 @@ char* zrtp_comp_id2type(zrtp_crypto_comp_t type, uint8_t id)
 		case ZRTP_SAS_BASE256:  return ZRTP_B256;
 		default: return "Unkn";
 		}
+		break;
 
 	case ZRTP_CC_CIPHER:
 		switch (id)
@@ -1109,6 +1114,7 @@ char* zrtp_comp_id2type(zrtp_crypto_comp_t type, uint8_t id)
 		case ZRTP_CIPHER_AES256: return ZRTP_AES3;
 		default: return "Unkn";
 		}
+		break;
 
 	case ZRTP_CC_PKT:
 		switch (id)
@@ -1122,6 +1128,7 @@ char* zrtp_comp_id2type(zrtp_crypto_comp_t type, uint8_t id)
 		case ZRTP_PKTYPE_EC521P: return ZRTP_EC521P;
 		default: return "Unkn";
 		}
+		break;
 
 	case ZRTP_CC_ATL:
 		switch (id)
@@ -1129,7 +1136,8 @@ char* zrtp_comp_id2type(zrtp_crypto_comp_t type, uint8_t id)
 		case ZRTP_ATL_HS32: return ZRTP_HS32;
 		case ZRTP_ATL_HS80: return ZRTP_HS80;
 		default: return "Unkn";
-		}		
+		}
+		break;
 
 	default:
 		return "Unkn";

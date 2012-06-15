@@ -161,13 +161,24 @@ typedef struct zrtp_config_t
 
 	/** @brief Path to zrtp cache file (set if you use built-in realization) */
 	zrtp_string256_t		def_cache_path;
+
+	/**
+	 * @brief Flush the cache automatically
+	 * Set to 1 if you want libzrtp to flush the cache to the persistent storage
+	 * right after it was modified. If cache_autho_store is 0, libzrtp will flush
+	 * the cache on going down only and the app is responsible for storing the
+	 * cache in unexpected situations. Enabled by default.
+	 *
+	 * @sa zrtp_def_cache_store()
+	 */
+	unsigned				cache_auto_store;
 } zrtp_config_t;
 
 /**
  * \brief zrtp stream information structure
  * \ingroup zrtp_main_management
  * 
- * libzrtp, since v0.80 takes data incapsulating approach and hides all private date inside 
+ * libzrtp, since v0.80 takes data encapsulating approach and hides all private date inside
  * zrtp_stream_t structure. Developers shouldn't access them directly. \ref zrtp_stream_get() should 
  * be used instead to fill zrtp_stream_info_t structure. zrtp_stream_info_t contains all needed 
  * information in safe and easy to use form.
