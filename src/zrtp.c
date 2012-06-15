@@ -909,7 +909,7 @@ zrtp_status_t zrtp_profile_check(const zrtp_profile_t* profile, zrtp_global_t* z
 		}
 	}
 	
-	/* Can't use Preshared with No cahce */
+	/* Can't use Preshared with No cache */
 	if (NULL == zrtp->cb.cache_cb.on_get) {
 		i = 0;
 		while (profile->pk_schemes[i]) {
