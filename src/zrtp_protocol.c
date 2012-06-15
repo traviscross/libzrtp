@@ -353,10 +353,10 @@ static zrtp_status_t _derive_s0(zrtp_stream_t* stream, int is_initiator)
 
 		/* Then Initiator's and Responder's ZIDs */
 		if (stream->protocol->type == ZRTP_STATEMACHINE_INITIATOR) {
-			zidi = ZSTR_GV(stream->session->zid);
+			zidi = ZSTR_GV(stream->session->zrtp->zid);
 			zidr = ZSTR_GV(stream->session->peer_zid);
 		} else {
-			zidr = ZSTR_GV(stream->session->zid);
+			zidr = ZSTR_GV(stream->session->zrtp->zid);
 			zidi = ZSTR_GV(stream->session->peer_zid);
 		}
 		
@@ -390,15 +390,9 @@ static zrtp_status_t _derive_s0(zrtp_stream_t* stream, int is_initiator)
 		else
 		{			
 			secrets->matches &= ~ZRTP_BIT_RS1;
-			if (session->zrtp->cb.cache_cb.on_set_verified) {
-				session->zrtp->cb.cache_cb.on_set_verified( ZSTR_GV(session->zid),
-															ZSTR_GV(session->peer_zid),
-															0);
-			}
-			
-			if (session->zrtp->cb.cache_cb.on_reset_since) {
-				session->zrtp->cb.cache_cb.on_reset_since(ZSTR_GV(session->zid), ZSTR_GV(session->peer_zid));
-			}
+
+			zrtp_cache_set_verified(session->zrtp->cache, ZSTR_GV(session->peer_zid), 0);
+			zrtp_cache_reset_secure_since(session->zrtp->cache, ZSTR_GV(session->peer_zid));
 
 			ZRTP_LOG(2,(_ZTU_,"\tINFO! Our RS1 doesn't equal to other-side's one %s. ID=%u\n",
 						cc->rs1.secret->_cachedflag ? " - drop verified!" : "", stream->id));
@@ -733,8 +727,8 @@ zrtp_status_t _zrtp_set_public_value( zrtp_stream_t *stream,
 	} /* total hash computing */
 	
 	/* Total Hash is ready and we can create KDF_Context */
-	zrtp_zstrcat(ZSTR_GV(cc->kdf_context), is_initiator ? ZSTR_GV(session->zid) : ZSTR_GV(session->peer_zid));
-	zrtp_zstrcat(ZSTR_GV(cc->kdf_context), is_initiator ? ZSTR_GV(session->peer_zid) : ZSTR_GV(session->zid));
+	zrtp_zstrcat(ZSTR_GV(cc->kdf_context), is_initiator ? ZSTR_GV(session->zrtp->zid) : ZSTR_GV(session->peer_zid));
+	zrtp_zstrcat(ZSTR_GV(cc->kdf_context), is_initiator ? ZSTR_GV(session->peer_zid) : ZSTR_GV(session->zrtp->zid));
 	zrtp_zstrcat(ZSTR_GV(cc->kdf_context), ZSTR_GV(cc->mes_hash));
 
 	/* Derive stream key S0 according to key exchange scheme */
@@ -1048,21 +1042,13 @@ zrtp_status_t _zrtp_machine_enter_secure(zrtp_stream_t* stream)
 
 			/* If possible MiTM attach detected - postpone storing the cache until after the user verify the SAS */
 			if (!session->mitm_alert_detected) {
-				if (session->zrtp->cb.cache_cb.on_put) {
-					session->zrtp->cb.cache_cb.on_put( ZSTR_GV(session->zid),
-													   ZSTR_GV(session->peer_zid),
-													   secrets->rs1);
-				}
+				zrtp_cache_put(session->zrtp->cache, ZSTR_GV(session->peer_zid), secrets->rs1);
 			}
 
 			{
 			uint32_t verifiedflag = 0;
 			char buff[128];
-			if (session->zrtp->cb.cache_cb.on_get_verified) {
-				session->zrtp->cb.cache_cb.on_get_verified( ZSTR_GV(session->zid),
-															ZSTR_GV(session->peer_zid),
-															&verifiedflag);
-			}
+			zrtp_cache_get_verified(session->zrtp->cache, ZSTR_GV(session->peer_zid), &verifiedflag);
 
 			ZRTP_LOG(3,(_ZTU_,"\tNew secret was generated:\n"));
 			ZRTP_LOG(3,(_ZTU_,"\t\tRS1 value:<%s>\n",
@@ -1072,12 +1058,8 @@ zrtp_status_t _zrtp_machine_enter_secure(zrtp_stream_t* stream)
 			}
 		} /* for TTL > 0 only */
 		else {
-			if (session->zrtp->cb.cache_cb.on_put) {
-				secrets->rs1->ttl = 0;
-				session->zrtp->cb.cache_cb.on_put( ZSTR_GV(session->zid),
-												   ZSTR_GV(session->peer_zid),
-												   secrets->rs1);
-			}		
+			secrets->rs1->ttl = 0;
+			zrtp_cache_put(session->zrtp->cache, ZSTR_GV(session->peer_zid), secrets->rs1);
 		}
 	} /* For DH mode only */
 
@@ -1086,7 +1068,7 @@ zrtp_status_t _zrtp_machine_enter_secure(zrtp_stream_t* stream)
 		session->zrtp->cb.event_cb.on_zrtp_protocol_event(stream, ZRTP_EVENT_IS_SECURE_DONE);
 	}	
 
-	/* We have computed all subkeys from S0 and don't need it anylonger. */
+	/* We have computed all subkeys from S0 and don't need it any longer. */
 	zrtp_wipe_zstring(ZSTR_GV(cc->s0));
 
 	/* Clear DH crypto context */
@@ -1118,20 +1100,12 @@ zrtp_status_t _zrtp_machine_enter_secure(zrtp_stream_t* stream)
 	/*
 	 * Increase calls counter for Preshared mode and reset it on DH
 	 */
-	if (session->zrtp->cb.cache_cb.on_presh_counter_get && session->zrtp->cb.cache_cb.on_presh_counter_set) {
-		uint32_t calls_counter = 0;
-		session->zrtp->cb.cache_cb.on_presh_counter_get( ZSTR_GV(session->zid),
-														ZSTR_GV(session->peer_zid),
-														&calls_counter);
-		if (ZRTP_IS_STREAM_DH(stream)) {
-			session->zrtp->cb.cache_cb.on_presh_counter_set( ZSTR_GV(session->zid),
-															ZSTR_GV(session->peer_zid),
-															0);
-		} else if ZRTP_IS_STREAM_PRESH(stream) {
-			session->zrtp->cb.cache_cb.on_presh_counter_set( ZSTR_GV(session->zid),
-															ZSTR_GV(session->peer_zid),
-															++calls_counter);
-		}
+	uint32_t calls_counter = 0;
+	zrtp_cache_get_presh_counter(session->zrtp->cache, ZSTR_GV(session->peer_zid), &calls_counter);
+	if (ZRTP_IS_STREAM_DH(stream)) {
+		zrtp_cache_set_presh_counter(session->zrtp->cache, ZSTR_GV(session->peer_zid), 0);
+	} else if ZRTP_IS_STREAM_PRESH(stream) {
+		zrtp_cache_set_presh_counter(session->zrtp->cache, ZSTR_GV(session->peer_zid), ++calls_counter);
 	}
 	
 	clear_crypto_sources(stream);
@@ -1167,11 +1141,7 @@ zrtp_status_t _zrtp_machine_create_confirm( zrtp_stream_t *stream,
 
 	zrtp_memcpy(confirm->hash, stream->messages.h0.buffer, ZRTP_MESSAGE_HASH_SIZE);
 
-	if (session->zrtp->cb.cache_cb.on_get_verified) {
-		session->zrtp->cb.cache_cb.on_get_verified( ZSTR_GV(session->zid),
-												    ZSTR_GV(session->peer_zid),
-												    &verifiedflag);
-	}
+	zrtp_cache_get_verified(session->zrtp->cache, ZSTR_GV(session->peer_zid), &verifiedflag);
 
 	confirm->expired_interval = zrtp_hton32(session->profile.cache_ttl);
 	confirm->flags = 0;
@@ -1372,7 +1342,7 @@ zrtp_status_t _zrtp_machine_process_confirm( zrtp_stream_t *stream,
 	/* Drop RS1 VERIFIED flag if other side didn't verified key exchange */
 	if (0 == (confirm->flags & 0x04)) {
 		ZRTP_LOG(2,(_ZTU_,"\tINFO: Other side Confirm V=0 - set verified to 0! ID=%u\n", stream->id));
-		zrtp_verified_set(session->zrtp, &session->zid, &session->peer_zid, 0);
+		zrtp_verified_set(session->zrtp, &session->zrtp->zid, &session->peer_zid, 0);
 	}
 
     /* Look for Enrollment replay flag */

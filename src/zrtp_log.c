@@ -51,7 +51,6 @@ void zrtp_log_set_log_engine(zrtp_log_engine *engine) {
     log_writer = engine;
 }
 
-static const uint32_t zrtp_log_header_allign = 16;
 
 /*----------------------------------------------------------------------------*/
 static void zrtp_log(uint8_t is_clean, const char *sender, uint32_t level,  const char *format, va_list marker)
@@ -409,6 +408,8 @@ typedef struct _zrtp_aling_test
 
 void zrtp_print_env_settings(zrtp_config_t* config)
 {
+	char buff[128];
+
 #if (ZRTP_PLATFORM == ZP_WIN32)
 	char* platform = "Windows 32bit";
 #elif (ZRTP_PLATFORM == ZP_WIN32_KERNEL) 
@@ -451,10 +452,12 @@ void zrtp_print_env_settings(zrtp_config_t* config)
 	ZRTP_LOG(3,("zrtp","          sizeo of three chars: %d\n", sizeof(_zrtp_aling_test)));
 	ZRTP_LOG(3,("zrtp","\n"));
 	ZRTP_LOG(3,("zrtp","ZRTP Initialization Settings\n"));
+	ZRTP_LOG(3,("zrtp","                          zid: %s\n", hex2str((const char *)config->zid, sizeof(config->zid), buff, sizeof(buff))));
 	ZRTP_LOG(3,("zrtp","                    client ID: %s\n", config->client_id));
 	ZRTP_LOG(3,("zrtp","                      license: %d\n", config->lic_mode));
 	ZRTP_LOG(3,("zrtp","                         MiTM: %s\n", config->is_mitm?"ENABLED":"DIABLED"));
-	ZRTP_LOG(3,("zrtp","                   cache path: %s\n", config->def_cache_path.length?config->def_cache_path.buffer:""));
+	if (config->cache_type == ZRTP_CACHE_FILE)
+		ZRTP_LOG(3,("zrtp","                   cache path: %s\n", config->cache_file_cfg.cache_path));
 }
 
 /*---------------------------------------------------------------------------*/

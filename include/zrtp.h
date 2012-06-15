@@ -34,7 +34,8 @@
 #include "zrtp_pbx.h"
 #include "zrtp_legal.h"
 #include "zrtp_version.h"
-#include "zrtp_iface_cache.h"
+#include "zrtp_cache.h"
+#include "zrtp_cache_file.h"
 #if (defined(ZRTP_ENABLE_EC) && (ZRTP_ENABLE_EC == 1))
 #include "zrtp_ec.h"
 #endif
@@ -147,6 +148,9 @@ typedef char zrtp_client_id_t[16];
  */
 typedef struct zrtp_config_t
 {	
+	/** @brief local endpoint  ZID */
+	zrtp_zid_t 				zid;
+
 	/** @brief Symbolic client identifier */
 	zrtp_client_id_t		client_id;
 	
@@ -159,19 +163,11 @@ typedef struct zrtp_config_t
 	/** @brief Set of interfaces required to operate with libzrtp */
 	zrtp_callback_t			cb;
 
-	/** @brief Path to zrtp cache file (set if you use built-in realization) */
-	zrtp_string256_t		def_cache_path;
+	/** Define type of zrtp cache implementation to use. Default is ZRTP_CACHE_FILE. */
+	zrtp_cache_type_t		cache_type;
 
-	/**
-	 * @brief Flush the cache automatically
-	 * Set to 1 if you want libzrtp to flush the cache to the persistent storage
-	 * right after it was modified. If cache_autho_store is 0, libzrtp will flush
-	 * the cache on going down only and the app is responsible for storing the
-	 * cache in unexpected situations. Enabled by default.
-	 *
-	 * @sa zrtp_def_cache_store()
-	 */
-	unsigned				cache_auto_store;
+	/** ZRTP file-based cache configuration, used if \c cache_type if ZRTP_CACHE_FILE*/
+	zrtp_cache_file_config_t cache_file_cfg;
 } zrtp_config_t;
 
 /**
@@ -459,7 +455,6 @@ zrtp_status_t zrtp_down(zrtp_global_t* zrtp);
  * \param zrtp - global libzrtp context;
  * \param profile - the session configuration profile. If value of this parameter is NULL, default 
  *     profile will be used. NULL profile usage is equivalent to calling zrtp_profile_defaults().
- * \param zid - ZRTP peer identificator.  
  * \param role - identifies if the endpoint was the signaling initiator of the call. Used to 
  *    provide Passive Mode options to the developer. If your application doesn't control signaling 
  *    or you don't want to support Passive Mode features - set it to ZRTP_SIGNALING_ROLE_UNKNOWN.
@@ -471,7 +466,6 @@ zrtp_status_t zrtp_down(zrtp_global_t* zrtp);
  */
 zrtp_status_t zrtp_session_init( zrtp_global_t* zrtp,
 								 zrtp_profile_t* profile,
-								 zrtp_zid_t zid,
 								 zrtp_signaling_role_t role,
 								 zrtp_session_t **session);
 /**
@@ -955,6 +949,8 @@ int zrtp_entropy_add(zrtp_global_t* zrtp, const unsigned char *buffer, uint32_t 
  * \sa \ref rng
  */
 int zrtp_randstr(zrtp_global_t* zrtp, unsigned char *buffer, uint32_t length);
+
+int zrtp_randstr2(unsigned char *buffer, uint32_t length);
 
 /* \} */
 

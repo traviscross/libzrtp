@@ -9,6 +9,8 @@
 
 #include "zrtp.h"
 
+#include <string.h>
+
 #define _ZTU_ "zrtp main"
 
 /*----------------------------------------------------------------------------*/
@@ -30,25 +32,10 @@ void zrtp_config_defaults(zrtp_config_t* config)
 	
 	zrtp_memcpy(config->client_id, "ZRTP def. peer", 15);
 	config->lic_mode = ZRTP_LICENSE_MODE_PASSIVE;
-	
-	ZSTR_SET_EMPTY(config->def_cache_path);
-	zrtp_zstrncpyc(ZSTR_GV(config->def_cache_path), "./zrtp_def_cache_path.dat", 25);
 
-	config->cache_auto_store = 1; /* cache auto flushing should be enabled by default */
-
-#if (defined(ZRTP_USE_BUILTIN_CACHE) && (ZRTP_USE_BUILTIN_CACHE == 1))
-	config->cb.cache_cb.on_init					= zrtp_def_cache_init;
-	config->cb.cache_cb.on_down					= zrtp_def_cache_down;
-	config->cb.cache_cb.on_put					= zrtp_def_cache_put;
-	config->cb.cache_cb.on_put_mitm				= zrtp_def_cache_put_mitm;
-	config->cb.cache_cb.on_get					= zrtp_def_cache_get;
-	config->cb.cache_cb.on_get_mitm				= zrtp_def_cache_get_mitm;
-	config->cb.cache_cb.on_set_verified			= zrtp_def_cache_set_verified;
-	config->cb.cache_cb.on_get_verified			= zrtp_def_cache_get_verified;
-	config->cb.cache_cb.on_reset_since			= zrtp_def_cache_reset_since;
-	config->cb.cache_cb.on_presh_counter_set	= zrtp_def_cache_set_presh_counter;
-	config->cb.cache_cb.on_presh_counter_get	= zrtp_def_cache_get_presh_counter;
-#endif
+	config->cache_type = ZRTP_CACHE_FILE;
+	strcpy(config->cache_file_cfg.cache_path, ZRTP_CACHE_FILE_DEF_PATH);
+	config->cache_file_cfg.cache_auto_store = 1; /* cache auto flushing should be enabled by default */
 
 #if (defined(ZRTP_USE_BUILTIN_SCEHDULER) && (ZRTP_USE_BUILTIN_SCEHDULER == 1))
 	config->cb.sched_cb.on_init					= zrtp_def_scheduler_init;
@@ -80,10 +67,8 @@ zrtp_status_t zrtp_init(zrtp_config_t* config, zrtp_global_t** zrtp)
 	 */		
 	new_zrtp->lic_mode = config->lic_mode;	
 	new_zrtp->is_mitm = config->is_mitm;
-	ZSTR_SET_EMPTY(new_zrtp->def_cache_path);
-	zrtp_zstrcpy(ZSTR_GV(new_zrtp->def_cache_path), ZSTR_GV(config->def_cache_path));
+
 	zrtp_memcpy(&new_zrtp->cb, &config->cb, sizeof(zrtp_callback_t));
-	new_zrtp->cache_auto_store = config->cache_auto_store;
         
 	ZSTR_SET_EMPTY(new_zrtp->client_id);
 	zrtp_memset(new_zrtp->client_id.buffer, ' ', sizeof(zrtp_client_id_t));
@@ -91,6 +76,10 @@ zrtp_status_t zrtp_init(zrtp_config_t* config, zrtp_global_t** zrtp)
 					(const char*)config->client_id,
 					sizeof(zrtp_client_id_t));
 	
+	/* copy local ZID */
+	zrtp_memcpy(new_zrtp->zid.buffer, (const char*)config->zid, sizeof(config->zid));
+	new_zrtp->zid.length = sizeof(config->zid);
+
     /*
 	 * General Initialization
 	 */
@@ -115,15 +104,19 @@ zrtp_status_t zrtp_init(zrtp_config_t* config, zrtp_global_t** zrtp)
 	s =  zrtp_srtp_init(new_zrtp);
 	if (zrtp_status_ok != s) {
 		ZRTP_LOG(1, (_ZTU_,"ERROR! zrtp_srtp_init() failed:<%s>\n", zrtp_log_status2str(s)));
-		return zrtp_status_fail;
+		return s;
     }    
 
-	if (new_zrtp->cb.cache_cb.on_init)  {
-		s = new_zrtp->cb.cache_cb.on_init(new_zrtp);
+	/* Create ZRTP cache */
+	if (config->cache_type == ZRTP_CACHE_FILE) {
+		zrtp_cache_file_t *cache_file;
+
+		s = zrtp_cache_file_create(ZSTR_GV(new_zrtp->zid), &config->cache_file_cfg, &cache_file);
 		if (zrtp_status_ok != s) {
-			ZRTP_LOG(1, (_ZTU_,"ERROR! cache on_init() callback failed <%s>\n", zrtp_log_status2str(s)));
-			zrtp_srtp_down(new_zrtp);
-			return zrtp_status_fail;
+			ZRTP_LOG(1, (_ZTU_,"ERROR! zrtp_cache_file_create() failed:<%s>\n", zrtp_log_status2str(s)));
+			return s;
+		} else {
+			new_zrtp->cache = (zrtp_cache_t *)cache_file;
 		}
 	}
 	
@@ -132,7 +125,7 @@ zrtp_status_t zrtp_init(zrtp_config_t* config, zrtp_global_t** zrtp)
 		if (zrtp_status_ok != s) {
 			ZRTP_LOG(1, (_ZTU_,"ERROR! scheduler on_init() callback failed <%s>\n", zrtp_log_status2str(s)));
 			zrtp_srtp_down(new_zrtp);
-			return zrtp_status_fail;
+			return s;
 		}
 	}
 	
@@ -147,7 +140,7 @@ zrtp_status_t zrtp_init(zrtp_config_t* config, zrtp_global_t** zrtp)
 	*zrtp = new_zrtp;
 	
 	ZRTP_LOG(3, (_ZTU_,"INITIALIZING LIBZRTP - DONE\n"));
-    return  s;
+    return  zrtp_status_ok;
 }
 
 
@@ -171,9 +164,12 @@ zrtp_status_t zrtp_down(zrtp_global_t* zrtp)
 	
 	zrtp_srtp_down(zrtp);
 	
-	if (zrtp->cb.cache_cb.on_down) {
-		zrtp->cb.cache_cb.on_down();
+	if (zrtp->cache) {
+		if (zrtp->cache->type == ZRTP_CACHE_FILE) {
+			zrtp_cache_file_destroy((zrtp_cache_file_t *)zrtp->cache);
+		}
 	}
+
 	if (zrtp->cb.sched_cb.on_down) {
 		zrtp->cb.sched_cb.on_down();
 	}
@@ -190,7 +186,6 @@ zrtp_status_t zrtp_down(zrtp_global_t* zrtp)
 /*----------------------------------------------------------------------------*/
 zrtp_status_t zrtp_session_init( zrtp_global_t* zrtp,
 								zrtp_profile_t* profile,
-								zrtp_zid_t zid,
 								zrtp_signaling_role_t role,
 								zrtp_session_t **session)
 {
@@ -210,11 +205,7 @@ zrtp_status_t zrtp_session_init( zrtp_global_t* zrtp,
     zrtp_memset(new_session, 0, sizeof(zrtp_session_t));
 	new_session->id = zrtp->sessions_count++;
 	
-	{
-		zrtp_uchar32_t buff;
-		ZRTP_LOG(3, (_ZTU_,"START SESSION INITIALIZATION. sID=%u.\n", new_session->id));
-		ZRTP_LOG(3, (_ZTU_,"ZID=%s.\n", hex2str((const char*)zid, sizeof(zrtp_uchar12_t), (char*)buff, sizeof(buff)) ));
-	}
+	ZRTP_LOG(3, (_ZTU_,"START SESSION INITIALIZATION. sID=%u.\n", new_session->id));
 	
 	do {	
 	/*
@@ -279,9 +270,7 @@ zrtp_status_t zrtp_session_init( zrtp_global_t* zrtp,
 	}
 
 	/* Set ZIDs */
-	ZSTR_SET_EMPTY(new_session->zid);
     ZSTR_SET_EMPTY(new_session->peer_zid);
-	zrtp_zstrncpyc(ZSTR_GV(new_session->zid), (const char*)zid, sizeof(zrtp_zid_t));	
 
 	new_session->zrtp = zrtp;
 	new_session->signaling_role = role;
@@ -522,7 +511,7 @@ zrtp_status_t zrtp_stream_attach(zrtp_session_t *session, zrtp_stream_t** stream
 	hello->mitmflag = session->zrtp->is_mitm;	
 	hello->sigflag	= 0;	
 		
-	zrtp_memcpy(hello->zid, session->zid.buffer, session->zid.length);
+	zrtp_memcpy(hello->zid, session->zrtp->zid.buffer, session->zrtp->zid.length);
 	
 	comp_ptr = (int8_t*)hello->comp;
 	i = 0;
@@ -706,7 +695,7 @@ zrtp_status_t zrtp_session_get(zrtp_session_t *session, zrtp_session_info_t *inf
 	ZSTR_SET_EMPTY(info->pk_name);
 	
 	info->id = session->id;
-	zrtp_zstrcpy(ZSTR_GV(info->zid), ZSTR_GV(session->zid));
+	zrtp_zstrcpy(ZSTR_GV(info->zid), ZSTR_GV(session->zrtp->zid));
 	zrtp_zstrcpy(ZSTR_GV(info->peer_zid), ZSTR_GV(session->peer_zid));
 	
 	for (i=0; i<ZRTP_MAX_STREAMS_PER_SESSION; i++) {
@@ -732,11 +721,7 @@ zrtp_status_t zrtp_session_get(zrtp_session_t *session, zrtp_session_info_t *inf
 		info->sas_is_base256 = (ZRTP_SAS_BASE256 == session->sasscheme->base.id);
 		
 		info->sas_is_verified = 0;
-		if (session->zrtp->cb.cache_cb.on_get_verified) {
-			session->zrtp->cb.cache_cb.on_get_verified( ZSTR_GV(session->zid),
-													    ZSTR_GV(session->peer_zid),
-													    &info->sas_is_verified);
-		}
+		zrtp_cache_get_verified(session->zrtp->cache, ZSTR_GV(session->peer_zid), &info->sas_is_verified);
 
 		zrtp_zstrcpyc(ZSTR_GV(info->hash_name), zrtp_hash2str[session->hash->base.id-1]);
 		zrtp_zstrcpyc(ZSTR_GV(info->cipher_name), zrtp_cipher2str[session->blockcipher->base.id-1]);
@@ -909,8 +894,8 @@ zrtp_status_t zrtp_profile_check(const zrtp_profile_t* profile, zrtp_global_t* z
 		}
 	}
 	
-	/* Can't use Preshared with No cahce */
-	if (NULL == zrtp->cb.cache_cb.on_get) {
+	/* Can't use Preshared with No cache */
+	if (!zrtp->cache) {
 		i = 0;
 		while (profile->pk_schemes[i]) {
 			if (ZRTP_PKTYPE_PRESH == profile->pk_schemes[i++]) {

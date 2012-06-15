@@ -4,10 +4,9 @@
  * For licensing and other legal details, see the file zrtp_legal.c.
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-SINCE LIBZRTP v0.80 CHANGELOG IS A PART OF HTML DOCUMENTATION. 
-https://developers.zfoneproject.com/libzrtp/wiki/LibzrtpChangeLog
+SINCE LIBZRTP v1.20 CHANGELOG IS A PART OF HTML DOCUMENTATION. 
+Check generated html or doc/manuals/changelog.dox doxygen sources 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
 
 libzrtp 0.7.1											18.11.2008
 --------------------------------------------------------------------------------

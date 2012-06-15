@@ -325,7 +325,7 @@ zrtp_status_t zrtp_stream_registration_start(zrtp_stream_t* stream, uint32_t ssr
 	ZRTP_LOG(3,(_ZTU_,"START REGISTRATION STREAM ID=%u mode=%s state=%s.\n",
 				stream->id, zrtp_log_mode2str(stream->mode), zrtp_log_state2str(stream->state)));
 
-	if (NULL == stream->zrtp->cb.cache_cb.on_get_mitm) {
+	if (! stream->zrtp->cache) {
 		ZRTP_LOG(2,(_ZTU_,"WARNING: Can't use MiTM Functions with no ZRTP Cache.\n"));
 		return zrtp_status_notavailable;
 	}
@@ -343,7 +343,7 @@ zrtp_status_t zrtp_stream_registration_secure(zrtp_stream_t* stream)
 	ZRTP_LOG(3,(_ZTU_,"SECURE REGISTRATION STREAM ID=%u mode=%s state=%s.\n",
 				stream->id, zrtp_log_mode2str(stream->mode), zrtp_log_state2str(stream->state)));
 
-	if (NULL == stream->zrtp->cb.cache_cb.on_get_mitm) {
+	if (!stream->zrtp->cache) {
 		ZRTP_LOG(2,(_ZTU_,"WARNING: Can't use MiTM Functions with no ZRTP Cache.\n"));
 		return zrtp_status_notavailable;
 	}
@@ -364,7 +364,7 @@ zrtp_status_t zrtp_register_with_trusted_mitm(zrtp_stream_t* stream)
 
 	ZRTP_LOG(3,(_ZTU_,"MARKING this call as REGISTRATION ID=%u\n", stream->id));
 
-	if (NULL == stream->zrtp->cb.cache_cb.on_get_mitm) {
+	if (!stream->zrtp->cache) {
 		ZRTP_LOG(2,(_ZTU_,"WARNING: Can't use MiTM Functions with no ZRTP Cache.\n"));
 		return zrtp_status_notavailable;
 	}
@@ -392,11 +392,11 @@ zrtp_status_t zrtp_register_with_trusted_mitm(zrtp_stream_t* stream)
 		zrtp_string16_t *zidi, *zidr;
 
 		if (stream->protocol->type == ZRTP_STATEMACHINE_INITIATOR) {
-			zidi = &session->zid;
+			zidi = &session->zrtp->zid;
 			zidr = &session->peer_zid;
 		} else {
 			zidi = &session->peer_zid;
-			zidr = &session->zid;
+			zidr = &session->zrtp->zid;
 		}
 
 		zrtp_zstrcat(ZSTR_GV(kdf_context), ZSTR_GVP(zidi));
@@ -414,12 +414,8 @@ zrtp_status_t zrtp_register_with_trusted_mitm(zrtp_stream_t* stream)
 		session->secrets.cached |= ZRTP_BIT_PBX;
 		session->secrets.matches |= ZRTP_BIT_PBX;
 
-		s = zrtp_status_ok;
-		if (session->zrtp->cb.cache_cb.on_put_mitm) {
-			s = session->zrtp->cb.cache_cb.on_put_mitm( ZSTR_GV(session->zid),
-														ZSTR_GV(session->peer_zid),
-														session->secrets.pbxs);
-		}
+		s = zrtp_cache_put_mitm(session->zrtp->cache, ZSTR_GV(session->peer_zid), session->secrets.pbxs);
+
 
 		ZRTP_LOG(3,(_ZTU_,"Makring this call as REGISTRATION - DONE\n"));
 	}
@@ -496,7 +492,7 @@ zrtp_status_t zrtp_update_remote_options( zrtp_stream_t* stream,
 				hex2str((const char*)transf_sas_value->buffer, transf_sas_value->length, (char*)buff, sizeof(buff)) : "NULL",
 				transf_sas_scheme));
 
-	if (NULL == stream->zrtp->cb.cache_cb.on_get_mitm) {
+	if (!stream->zrtp->cache) {
 		ZRTP_LOG(2,(_ZTU_,"WARNING: Can't use MiTM Functions with no ZRTP Cache.\n"));
 		return zrtp_status_notavailable;
 	}
@@ -561,7 +557,7 @@ zrtp_status_t zrtp_resolve_mitm_call( zrtp_stream_t* stream1,
 
 	ZRTP_LOG(3,(_ZTU_,"RESOLVE MITM CALL s1=%u, s2=%u...\n", stream1->id, stream2->id));
 
-	if (NULL == stream1->zrtp->cb.cache_cb.on_get_mitm) {
+	if (!stream1->zrtp->cache) {
 		ZRTP_LOG(2,(_ZTU_,"WARNING: Can't use MiTM Functions with no ZRTP Cache.\n"));
 		return zrtp_status_notavailable;
 	}
@@ -681,9 +677,9 @@ zrtp_stream_t* zrtp_choose_one_enrolled(zrtp_stream_t* stream1, zrtp_stream_t* s
 		return NULL;
 	}
 
-	if (zrtp_memcmp( stream1->session->zid.buffer,
-					 stream2->session->zid.buffer,
-					 stream1->session->zid.length) > 0) {
+	if (zrtp_memcmp( stream1->session->zrtp->zid.buffer,
+					 stream2->session->zrtp->zid.buffer,
+					 stream1->session->zrtp->zid.length) > 0) {
 		return stream1;
 	} else {
 		return stream2;
