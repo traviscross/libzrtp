@@ -7,6 +7,7 @@
  * Viktor Krykun <v.krikun at zfoneproject.com>
  */
 
+#include "zrtp_types.h"
 #include "zrtp_cache.h"
 
 zrtp_status_t zrtp_cache_put(zrtp_cache_t *cache, const zrtp_stringn_t* remote_zid, zrtp_shared_secret_t *rss) {
@@ -135,3 +136,18 @@ zrtp_status_t zrtp_cache_put_name(zrtp_cache_t *cache,
 	}
 }
 
+zrtp_status_t zrtp_cache_get_name2(zrtp_session_t *session, zrtp_stringn_t* name) {
+	if (session && session->zrtp && session->zrtp->cache) {
+		return zrtp_cache_get_name(session->zrtp->cache, ZSTR_GV(session->peer_zid), name);
+	} else {
+		return zrtp_status_bad_param;
+	}
+}
+
+zrtp_status_t zrtp_cache_put_name2(zrtp_session_t *session, const zrtp_stringn_t* name) {
+	if (session && session->zrtp && session->zrtp->cache) {
+		return zrtp_cache_put_name(session->zrtp->cache, ZSTR_GV(session->peer_zid), name);
+	} else {
+		return zrtp_status_bad_param;
+	}
+}

@@ -282,6 +282,24 @@ zrtp_status_t zrtp_cache_put_name(zrtp_cache_t *cache,
 		const zrtp_stringn_t* remote_zid,
 		const zrtp_stringn_t* name);
 
+/**
+ * Another version of zrtp_cache_get_name() to get peer ZRTP cache name my session.
+ *
+ * \param session	- zrtp session which remote's name should be retrieved from the cache
+ * \param name		- output name buffer
+ * \return zrtp_status_ok in case of success or one of zrtp_status_t error codes in case of failure
+ */
+zrtp_status_t zrtp_cache_get_name2(zrtp_session_t *session, zrtp_stringn_t* name);
+
+/**
+ * Another version of zrtp_cache_set_name() to assign name to ZRTP endpoint
+ *
+ * \param session	- zrtp session which remote endpoint name should be set
+ * \param name		- endpoint name
+ * \return zrtp_status_ok in case of success or one of zrtp_status_t error codes in case of failure
+ */
+zrtp_status_t zrtp_cache_put_name2(zrtp_session_t *session, const zrtp_stringn_t* name);
+
 #if defined(__cplusplus)
 }
 #endif
