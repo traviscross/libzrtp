@@ -103,6 +103,13 @@ check_PROGRAMS = cache_test
 
 SUBDIRS =  third_party/bnlib
 
+if HAVE_DOXYGEN
+doc: .stamp-doc
+.stamp-doc:
+	(cd doc && $(DOXYGEN) Doxyfile)
+	touch $@
+endif
+
 uninstall:
 	rm -rf $(prefix)/include/libzrtp
 	rm -f $(prefix)/lib/libzrtp.a

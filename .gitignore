@@ -6,3 +6,6 @@
 /_configs.sed
 /config/
 /include/zrtp_config_unix.h
+/.stamp-doc
+/doc/Doxyfile
+/doc/out
