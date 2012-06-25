@@ -45,6 +45,13 @@ if ZRTP_BUILD_ENTERPRISE
 libzrtp_include_HEADERS += $(top_srcdir)/include/zrtp_ec.h
 endif
 
+if ZRTP_WITH_SQLITE
+libzrtp_include_HEADERS += $(top_srcdir)/include/zrtp_cache_db.h \
+						   $(top_srcdir)/include/zrtp_cache_db_backend.h \
+						   $(top_srcdir)/include/zrtp_b64_decode.h \
+						   $(top_srcdir)/include/zrtp_b64_encode.h
+endif
+
 lib_LIBRARIES = libzrtp.a
 
 libzrtp_a_CPPFLAGS = \
@@ -52,6 +59,7 @@ libzrtp_a_CPPFLAGS = \
 			-I$(top_srcdir)/. \
 			-I$(top_srcdir)/third_party/bgaes \
 			-I$(top_srcdir)/third_party/bnlib
+
 
 libzrtp_a_LIBADD = $(top_srcdir)/third_party/bnlib/libbn.a
 
@@ -92,6 +100,13 @@ libzrtp_a_SOURCES = $(top_srcdir)/src/zrtp.c \
 if ZRTP_BUILD_ENTERPRISE
 libzrtp_a_SOURCES +=$(top_srcdir)/src/zrtp_crypto_ec.c \
 					$(top_srcdir)/src/zrtp_crypto_ecdh.c
+endif
+
+if ZRTP_WITH_SQLITE
+libzrtp_a_SOURCES +=$(top_srcdir)/src/zrtp_cache_db.c \
+					$(top_srcdir)/src/zrtp_cache_sqlite_backend.c \
+					$(top_srcdir)/src/zrtp_b64_decode.c \
+					$(top_srcdir)/src/zrtp_b64_encode.c
 endif
 
 check_PROGRAMS = cache_test

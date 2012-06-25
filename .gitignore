@@ -1,5 +1,8 @@
 # -*- mode:conf -*-
+/*~
 /*.a
+/*.log
+/*.status
 /*.dat
 /*.o
 /.cproject

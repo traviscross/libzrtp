@@ -31,6 +31,7 @@ typedef struct zrtp_cache_t zrtp_cache_t;
 /** Defines types of zrtp caches libzrtp supports out of the box */
 typedef enum {
 	ZRTP_CACHE_FILE = 0,	/** File-based ZRTP cache implementation */
+	ZRTP_CACHE_SQLITE,		/** SQLite based cache backend \sa zrtp_cache_set() */
 	ZRTP_CACHE_CUSTOM		/** user-provided ZRTP cache \sa zrtp_cache_set() */
 } zrtp_cache_type_t;
 
