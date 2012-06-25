@@ -14,12 +14,25 @@
 #include <stdio.h>
 
 #include "zrtp.h"
+
+#define _UINTMAX_T
 #include "cmockery/cmockery.h"
 
-#define TEST_CACHE_PATH		"./zrtp_cache_test.dat"
+#if defined ZRTP_HAVE_SQLITE
+#include "zrtp_cache_db.h"
+#include "zrtp_cache_db_backend.h"
+#endif 
+
+#define TEST_CACHE_PATH		"/tmp/zrtp_cache_test.dat"
+
+static int sqliteTest = 0;
 
 static zrtp_cache_t *g_cache = NULL;
-zrtp_cache_file_config_t g_file_cinfig;
+zrtp_cache_file_config_t g_file_config;
+
+#if defined ZRTP_HAVE_SQLITE
+zrtp_cache_db_config_t g_db_config;
+#endif
 
 static zrtp_string16_t zid_my = ZSTR_INIT_WITH_CONST_CSTRING("000000000_00");
 static zrtp_string16_t zid_a = ZSTR_INIT_WITH_CONST_CSTRING("000000000_02");
@@ -76,10 +89,18 @@ static void cache_setup_file() {
 	remove(TEST_CACHE_PATH);
 
 	/* Initialize File cache */
-	g_file_cinfig.cache_auto_store = g_cache_auto_store;
-	strcpy(g_file_cinfig.cache_path, TEST_CACHE_PATH);
+	g_file_config.cache_auto_store = g_cache_auto_store;
+	strcpy(g_file_config.cache_path, TEST_CACHE_PATH);
 
-	status = zrtp_cache_file_create(ZSTR_GV(zid_my), &g_file_cinfig, (zrtp_cache_file_t **)&g_cache);
+#if defined ZRTP_HAVE_SQLITE
+    strcpy(g_db_config.cache_path, TEST_CACHE_PATH);
+#endif
+
+    if (!sqliteTest)
+        status = zrtp_cache_file_create(ZSTR_GV(zid_my), &g_file_config, (zrtp_cache_file_t **)&g_cache);
+    else
+        status = zrtp_cache_db_create(ZSTR_GV(zid_my), &g_db_config, (zrtp_cache_db_t **)&g_cache);
+
 	assert_int_equal(zrtp_status_ok, status);
 	assert_non_null(g_cache);
 
@@ -87,11 +108,18 @@ static void cache_setup_file() {
 	cache_setup_();
 	
 	printf("==> Close the cache.\n");
-	status = zrtp_cache_file_destroy((zrtp_cache_file_t *)g_cache);
+    if (!sqliteTest)
+        status = zrtp_cache_file_destroy((zrtp_cache_file_t *)g_cache);
+    else
+        status = zrtp_cache_db_destroy(g_cache);
+
 	assert_int_equal(zrtp_status_ok, status);
 	
 	printf("==> Open just prepared cache file.\n");
-	status = zrtp_cache_file_create(ZSTR_GV(zid_my), &g_file_cinfig, (zrtp_cache_file_t **)&g_cache);
+    if (!sqliteTest)
+        status = zrtp_cache_file_create(ZSTR_GV(zid_my), &g_file_config, (zrtp_cache_file_t **)&g_cache);
+    else
+        status = zrtp_cache_db_create(ZSTR_GV(zid_my), &g_db_config, (zrtp_cache_db_t **)&g_cache);
 	assert_int_equal(zrtp_status_ok, status);
 	assert_non_null(g_cache);
 
@@ -99,8 +127,12 @@ static void cache_setup_file() {
 }
 
 void cache_teardown_file() {
-	if (g_cache)
-		zrtp_cache_file_destroy((zrtp_cache_file_t *)g_cache);
+	if (g_cache) {
+        if (!sqliteTest)
+            zrtp_cache_file_destroy((zrtp_cache_file_t *)g_cache);
+        else
+            zrtp_cache_db_destroy(g_cache);
+    }
 }
 
 /*
@@ -123,6 +155,7 @@ void cache_add2empty_test() {
 	
 	status = zrtp_cache_get(g_cache, ZSTR_GV(zid_a), &rs_my4a_r, 0);
 	assert_int_equal(status, zrtp_status_ok);
+    printf("a: %d, a_r: %d\n", rs_my4a.value.length, rs_my4a_r.value.length);
 	assert_false(zrtp_zstrcmp(ZSTR_GV(rs_my4a_r.value), ZSTR_GV(rs_my4a.value)));
 	
 	status = zrtp_cache_get(g_cache, ZSTR_GV(zid_b), &rs_my4b_r, 0);
@@ -147,7 +180,11 @@ void cache_save_unchanged_test() {
 	/* Now, let's open the cache again and check if all the previously added values were restored successfully */
 	printf("==> Now let's Open the cache and Close it right after, make no changes.\n");
 	
-	status = zrtp_cache_file_destroy((zrtp_cache_file_t *)g_cache);
+    if (!sqliteTest)
+        status = zrtp_cache_file_destroy((zrtp_cache_file_t *)g_cache);
+    else
+        status = zrtp_cache_db_destroy(g_cache);
+
 	assert_int_equal(zrtp_status_ok, status);
 
 	/*
@@ -157,7 +194,11 @@ void cache_save_unchanged_test() {
 	
 	printf("==> And the cache again, it should contain all the stored values.\n");
 	
-	status = zrtp_cache_file_create(ZSTR_GV(zid_my), &g_file_cinfig, (zrtp_cache_file_t **)&g_cache);
+    if (!sqliteTest)
+        status = zrtp_cache_file_create(ZSTR_GV(zid_my), &g_file_config, (zrtp_cache_file_t **)&g_cache);
+    else
+        status = zrtp_cache_db_create(ZSTR_GV(zid_my), &g_db_config, (zrtp_cache_db_t **)&g_cache);
+
 	assert_int_equal(zrtp_status_ok, status);
 	
 	status = zrtp_cache_get(g_cache, ZSTR_GV(zid_a), &rs_my4a_r, 0);
@@ -206,12 +247,20 @@ void cache_modify_and_save_test() {
 	assert_int_equal(status, zrtp_status_ok);
 		
 	/* Flush the cache and open it again. */
-	status = zrtp_cache_file_destroy((zrtp_cache_file_t *)g_cache);
+    if (!sqliteTest)
+        status = zrtp_cache_file_destroy((zrtp_cache_file_t *)g_cache);
+    else
+        status = zrtp_cache_db_destroy(g_cache);
+
 	assert_int_equal(zrtp_status_ok, status);
 	
 	printf("==> Open the cache and make sure all our prev. modifications saved properly.\n");
 	
-	status = zrtp_cache_file_create(ZSTR_GV(zid_my), &g_file_cinfig, (zrtp_cache_file_t **)&g_cache);
+    if (!sqliteTest)
+        status = zrtp_cache_file_create(ZSTR_GV(zid_my), &g_file_config, (zrtp_cache_file_t **)&g_cache);
+    else
+        status = zrtp_cache_db_create(ZSTR_GV(zid_my), &g_db_config, (zrtp_cache_db_t **)&g_cache);
+
 	assert_int_equal(zrtp_status_ok, status);
 	
 	/* Let's check if all our modifications are in place. */
@@ -220,7 +269,7 @@ void cache_modify_and_save_test() {
 	assert_false(zrtp_zstrcmp(ZSTR_GV(rs_my4a_r.value), ZSTR_GV(rs_my4a.value)));
 	
 	status = zrtp_cache_get(g_cache, ZSTR_GV(zid_b), &rs_my4b_r, 0);
-	assert_int_equal(status, zrtp_status_ok);
+    assert_int_equal(status, zrtp_status_ok);
 	assert_false(zrtp_zstrcmp(ZSTR_GV(rs_my4b_r.value), ZSTR_GV(rs_my4b.value)));
 	
 	status = zrtp_cache_get(g_cache, ZSTR_GV(zid_c), &rs_my4c_r, 0);
@@ -236,10 +285,26 @@ void cache_modify_and_save_test() {
 	assert_false(zrtp_zstrcmp(ZSTR_GV(rs_my4mitm2_r.value), ZSTR_GV(rs_my4mitm2.value)));
 }
 
-int main(void) {
+int main(int argc, char *argv[]) 
+{
+
+#if defined ZRTP_HAVE_SQLITE
+    if (argc > 1) {
+        char *argp = argv[1];
+        switch (*argp) {
+        case 's':
+            printf("Test SQLite DB backend.\n");
+            sqliteTest = 1;
+            break;
+
+        default:
+            break;
+        }
+    }
+#endif
 	const UnitTest tests[] = {
 		unit_test_setup_teardown(cache_init_store_empty_test, cache_setup_file, cache_teardown_file),
-		unit_test_setup_teardown(cache_add2empty_test, cache_setup_file, cache_teardown_file),
+        unit_test_setup_teardown(cache_add2empty_test, cache_setup_file, cache_teardown_file),
 		unit_test_setup_teardown(cache_save_unchanged_test, cache_setup_file, cache_teardown_file),
 		unit_test_setup_teardown(cache_modify_and_save_test, cache_setup_file, cache_teardown_file),
   	};
@@ -258,7 +323,7 @@ static void init_rs_secret_(zrtp_shared_secret_t *sec, unsigned char val_fill) {
 	zrtp_memset(val_buff, val_fill, sizeof(val_buff));
 	
 	ZSTR_SET_EMPTY(sec->value);
-	zrtp_zstrcpyc(ZSTR_GV(sec->value), val_buff);
+	zrtp_zstrncpyc(ZSTR_GV(sec->value), val_buff, ZRTP_HASH_SIZE);
 	
 	sec->_cachedflag = 0;
 	sec->ttl = 0;

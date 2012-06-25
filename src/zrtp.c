@@ -9,6 +9,11 @@
 
 #include "zrtp.h"
 
+#if defined ZRTP_HAVE_SQLITE
+#include "zrtp_cache_db.h"
+#include "zrtp_cache_db_backend.h"
+#endif 
+
 #include <string.h>
 
 #define _ZTU_ "zrtp main"
@@ -33,9 +38,14 @@ void zrtp_config_defaults(zrtp_config_t* config)
 	zrtp_memcpy(config->client_id, "ZRTP def. peer", 15);
 	config->lic_mode = ZRTP_LICENSE_MODE_PASSIVE;
 
+#if defined ZRTP_HAVE_SQLITE
+	config->cache_type = ZRTP_CACHE_SQLITE;
+	strcpy(config->cache_db_cfg.cache_path, ZRTP_CACHE_DB_DEF_PATH );
+#else
 	config->cache_type = ZRTP_CACHE_FILE;
 	strcpy(config->cache_file_cfg.cache_path, ZRTP_CACHE_FILE_DEF_PATH);
 	config->cache_file_cfg.cache_auto_store = 1; /* cache auto flushing should be enabled by default */
+#endif
 
 #if (defined(ZRTP_USE_BUILTIN_SCEHDULER) && (ZRTP_USE_BUILTIN_SCEHDULER == 1))
 	config->cb.sched_cb.on_init					= zrtp_def_scheduler_init;
@@ -119,6 +129,21 @@ zrtp_status_t zrtp_init(zrtp_config_t* config, zrtp_global_t** zrtp)
 			new_zrtp->cache = (zrtp_cache_t *)cache_file;
 		}
 	}
+#if defined ZRTP_HAVE_SQLITE
+    else {
+		zrtp_cache_db_t *cache_db;
+
+        /* s = zrtp_cache_db_create(NULL, &config->cache_file_cfg, &cache_db); */
+		s = zrtp_cache_db_create(ZSTR_GV(new_zrtp->zid), &config->cache_db_cfg, &cache_db);
+		if (zrtp_status_ok != s) {
+			ZRTP_LOG(1, (_ZTU_,"ERROR! zrtp_cache_db_create() failed:<%s>\n", zrtp_log_status2str(s)));
+			return s;
+		} else {
+			new_zrtp->cache = (zrtp_cache_t *)cache_db;
+			new_zrtp->cache->type = config->cache_type;
+		}
+    }
+#endif 
 	
 	if (new_zrtp->cb.sched_cb.on_init)  {
 		s = new_zrtp->cb.sched_cb.on_init(new_zrtp);

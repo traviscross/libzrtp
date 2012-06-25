@@ -40,6 +40,9 @@
 #include "zrtp_ec.h"
 #endif
 
+#if defined ZRTP_HAVE_SQLITE
+#include "zrtp_cache_db.h"
+#endif
 
 
 /**
@@ -169,8 +172,12 @@ typedef struct zrtp_config_t
 	/** Define type of zrtp cache implementation to use. Default is ZRTP_CACHE_FILE. */
 	zrtp_cache_type_t		cache_type;
 
-	/** ZRTP file-based cache configuration, used if \c cache_type if ZRTP_CACHE_FILE*/
+	/** ZRTP file-based cache configuration, used if \c cache_type if ZRTP_CACHE_FILE */
 	zrtp_cache_file_config_t cache_file_cfg;
+#if defined ZRTP_HAVE_SQLITE
+	/** ZRTP DB-based cache configuration, used if \c cache_type if ZRTP_CACHE_SQLITE */
+	zrtp_cache_db_config_t cache_db_cfg;
+#endif
 } zrtp_config_t;
 
 /**

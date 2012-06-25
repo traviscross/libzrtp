@@ -1,4 +1,12 @@
 # -*- mode:conf -*-
+*~
+*.o
+*.a
+*.cache
+*.log
+*.status
+configure
+aclocal.m4
 /.cproject
 /.project
 /Makefile
@@ -7,5 +15,6 @@
 /config/
 /include/zrtp_config_unix.h
 /.stamp-doc
+/.deps
 /doc/Doxyfile
 /doc/out
