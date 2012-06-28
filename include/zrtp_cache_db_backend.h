@@ -16,7 +16,7 @@ extern "C"
 #define RS_LENGTH           32
 
 /**
- * Internal structure that holds the data of a remote ZID record.
+ * Internal structure that holds the non-key data of a remote ZID record.
  *
  * The data storage backends use this structure to get or to fill in data
  * to store in or that was read from the data store.
@@ -38,6 +38,8 @@ typedef struct {
     int64_t   rs2Ttl;
     uint8_t   mitmKey[RS_LENGTH];
     int64_t   mitmLastUse;
+    int64_t   secureSince;
+    uint32_t  preshCounter;
 } remoteZidRecord_t;
 
 /*
@@ -49,6 +51,19 @@ static const int32_t RS1Valid         = 0x4;
 static const int32_t RS2Valid         = 0x8;
 static const int32_t MITMKeyAvailable = 0x10;
 static const int32_t inUse            = 0x20;
+
+/**
+ * Internal structure that holds the non-key data of a ZID name record.
+ *
+ * The flags field currently just uses the @c Valid bit.
+ *
+ * See comment on @c remoteZidRecord_t above.
+ */
+typedef struct {
+    uint32_t flags;
+    char     *name;
+    int32_t  nameLength;
+} zidNameRecord_t;
 
 /**
  * Set of accessible operations of database ZRTP cache implementaion.
@@ -67,7 +82,7 @@ static const int32_t inUse            = 0x20;
  *      DB_CACHE_ERR_BUFF_SIZE character. In case of an error methods shall
  *      store detailed, human readable information in this buffer. Use @c
  *      snprintf or similar functions to format the data.  If this parameter
- *      is @c NULL then methods must not return an error string.  
+ *      is @c NULL then methods must not return an error string.
  *</li>
  * <li> The methods cast the @c void to the type they need. Be aware that the
  *      open functions requires a pointer to a pointer.
@@ -79,7 +94,7 @@ static const int32_t inUse            = 0x20;
  */
 typedef struct {
     /**
-     * Open the cache.
+     * @brief Open the cache.
      *
      * @param name String that identifies the database or data storage.
      *
@@ -100,7 +115,7 @@ typedef struct {
     int (*closeCache)(void *db);
 
     /**
-     * Read a local ZID from the database.
+     * @brief Read a local ZID from the database.
      *
      * The cache database may implement methods to generate and store local
      * ZRTP identifiers (ZID) and optionally link them with account
@@ -126,7 +141,7 @@ typedef struct {
      *                 buffer.
      *
      * @param accountInfo Pointer to an account information string or @c NULL
-     *                    if not account information required.
+     *                    if explicit account information is not required.
      *
      * @param errString Pointer to a character buffer, see implementation
      *                  notes above.
@@ -134,7 +149,7 @@ typedef struct {
     int (*readLocalZid)(void *db, uint8_t *localZid, const char *accountInfo, char *errString);
 
     /**
-     * Read a remote ZID data structure.
+     * @brief Read a remote ZID data structure.
      *
      * The method uses @c remoteZid and @c localZid as keys to read the remote
      * ZID record.  If a record does not exist in the database the method
@@ -160,16 +175,16 @@ typedef struct {
     int (*readRemoteZidRecord)(void *db, const uint8_t *remoteZid, const uint8_t *localZid, 
                                remoteZidRecord_t *remZid, char* errString);
     /**
-     * Update an existing remote ZID data structure.
+     * @brief Update an existing remote ZID data structure.
      *
      * The method uses @c remoteZid and @c localZid as keys to update an
      * existing remote ZID record.
      *
      * @b NOTE: application must use this methods only if
      *          @c readRemoteZidRecord (see above) returned a @b valid record. If
-     *          @c readRemoteZidRecord returned an invalid record the no such
+     *          @c readRemoteZidRecord returned an invalid record then no such
      *          record exists in the database and the application must use the
-     *          method @c insertRemoteZidRecord (see below).
+     *          @c insertRemoteZidRecord (see below).
      *
      * @param db Pointer to an internal structure that the database
      *           implementation requires.
@@ -190,14 +205,14 @@ typedef struct {
     int (*updateRemoteZidRecord)(void *db, const uint8_t *remoteZid, const uint8_t *localZid, 
                                  const remoteZidRecord_t *remZid, char* errString);
     /**
-     * Insert a new remote ZID data structure.
+     * @brief Insert a new remote ZID data structure.
      *
      * The method uses @c remoteZid and @c localZid as keys to insert a new
-     * the remote ZID record.
+     * remote ZID record.
      *
      * @b NOTE: application must use this methods only if @c
      *          readRemoteZidRecord (see above) returned an @b invalid
-     *          record. Refer to note
+     *          record. Refer to note.
      *
      * @param db Pointer to an internal structure that the database
      *           implementation requires.
@@ -217,6 +232,101 @@ typedef struct {
      */
     int (*insertRemoteZidRecord)(void *db, const uint8_t *remoteZid, const uint8_t *localZid, 
                                  const remoteZidRecord_t *remZid, char* errString);
+
+    /**
+     * @brief Read a remote ZID data structure.
+     *
+     * The method uses @c remoteZid, @c localZid, and @c accountInfo as keys
+     * to read the remote ZID record.  If a record does not exist in the database
+     * the method clears the @c flags field in the @c zidNameRecord_t structure and
+     * returns without error. The application must check the flags if the
+     * method found a valid record.
+     * 
+     * @param db Pointer to an internal structure that the database
+     *           implementation requires.
+     *
+     * @param localZid Pointer to a buffer of at least @c IDENTIFIER_LEN @c
+     *                 uint8_t bytes. The buffer must contain the local ZID.
+     *
+     * @param remoteZid Pointer to a buffer of at least @c IDENTIFIER_LEN @c
+     *                  uint8_t bytes. The buffer must contain the remote ZID.
+     *
+     * @param accountInfo Pointer to an account information string or @c NULL
+     *                    if explicit account information is not required.
+     *
+     * @param zidName Pointer to the @c zidNameRecord_t structure. The method
+     *                returns the data in this structure.
+     *
+     * @param errString Pointer to a character buffer, see implementation
+     *                  notes above.
+     */
+    int (*readZidNameRecord)(void *vdb, const uint8_t *remoteZid, const uint8_t *localZid,
+                             const char *accountInfo, zidNameRecord_t *zidName, char* errString);
+
+    /**
+     * @brief Update an existing remote ZID data structure.
+     *
+     * The method uses @c remoteZid and @c localZid as keys to update an
+     * existing remote ZID record.
+     *
+     * @b NOTE: application must use this methods only if
+     *          @c readZidName (see above) returned a @b valid record. If
+     *          @c readZidName returned an invalid record then no such
+     *          record exists in the database and the application must use the
+     *          @c insertZidNameRecord (see below).
+     *
+     * @param db Pointer to an internal structure that the database
+     *           implementation requires.
+     *
+     * @param localZid Pointer to a buffer of at least @c IDENTIFIER_LEN @c
+     *                 uint8_t bytes. The buffer must contain the local ZID.
+     *
+     * @param remoteZid Pointer to a buffer of at least @c IDENTIFIER_LEN @c
+     *                  uint8_t bytes. The buffer must contain the remote ZID.
+     *
+     * @param accountInfo Pointer to an account information string or @c NULL
+     *                    if explicit account information is not required.
+     *
+     * @param zidName Pointer to the @c zidNameRecord_t structure. The method
+     *               gets data from this structure and stores it in the
+     *               database.
+     *
+     * @param errString Pointer to a character buffer, see implementation
+     *                  notes above.
+     */
+    int (*updateZidNameRecord)(void *vdb, const uint8_t *remoteZid, const uint8_t *localZid,
+                               const char *accountInfo, zidNameRecord_t *zidName, char* errString);
+
+    /**
+     * @brief Insert a new ZID name record.
+     *
+     * The method uses @c remoteZid, @c localZid, and @c accountInfo as keys to
+     * insert a new ZID name record.
+     *
+     * @b NOTE: application must use this methods only if @c readZidName
+     *         (see above) returned an @b invalid record.
+     *
+     * @param db Pointer to an internal structure that the database
+     *           implementation requires.
+     *
+     * @param localZid Pointer to a buffer of at least @c IDENTIFIER_LEN @c
+     *                 uint8_t bytes. The buffer must contain the local ZID.
+     *
+     * @param remoteZid Pointer to a buffer of at least @c IDENTIFIER_LEN @c
+     *                  uint8_t bytes. The buffer must contain the remote ZID.
+     *
+     * @param accountInfo Pointer to an account information string or @c NULL
+     *                    if explicit account information is not required.
+     *
+     * @param zidName Pointer to the @c zidNameRecord_t structure. The method
+     *               gets data from this structure and stores it in the
+     *               database.
+     *
+     * @param errString Pointer to a character buffer, see implementation
+     *                  notes above.
+     */
+    int (*insertZidNameRecord)(void *vdb, const uint8_t *remoteZid, const uint8_t *localZid,
+                               const char *accountInfo, zidNameRecord_t *zidName, char* errString);
 
 } dbCacheOps_t;
 

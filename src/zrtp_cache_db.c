@@ -5,6 +5,7 @@
 #include <stdio.h>  /* for file operations*/
 #include <string.h> /* for strlen() and other string operations*/
 #include <stdint.h>
+#include <time.h>
 
 
 #include "zrtp_string.h"
@@ -44,24 +45,6 @@ struct zrtp_cache_db_t {
         return zrtp_status_bad_param;     \
     }
 
-#if 0
-/** Create cache ID like a pair of ZIDs. ZID with lowest value at the beginning */
-static void zrtp_cache_create_id(const zrtp_stringn_t* first_ZID,
-        const zrtp_stringn_t* second_ZID,
-        zrtp_cache_entry_id_t id);
-
-/** Searching for cache element by cache ID */
-static zrtp_cache_entry_t* get_elem(zrtp_cache_file_t *cache_file, const zrtp_cache_entry_id_t id, uint8_t is_mitm);
-
-static void zrtp_cache_entry_make_cross(zrtp_cache_entry_t* from, zrtp_cache_entry_t* to, uint8_t is_upload);
-
-/** Opens zrtp cache file and upload all entries  */
-static zrtp_status_t zrtp_cache_read_from_file(zrtp_cache_file_t *cache_file);
-
-/** Flush dirty (modified) cache entries to the file */
-static zrtp_status_t zrtp_cache_store_to_file(zrtp_cache_file_t *cache_file);
-#endif
-
 /******************************************************************************
  * libzrtp DB cache interface implementation
  */
@@ -73,7 +56,7 @@ static zrtp_status_t dbCachePutRs1(zrtp_cache_t *cache, const zrtp_stringn_t* rZ
     remoteZidRecord_t remZid;
     uint8_t *newRs1 = (uint8_t*)rss->value.buffer;
     char zidstr[IDENTIFIER_LEN * 2 + 2];
-    
+
     ZRTP_CACHE_CHECK_ZID(rZid);
 
     ZRTP_LOG(3,(_ZTU_,"\tdbCachePutRs1() remote ZID: %s\n", hex2str(rZid->buffer, rZid->length, zidstr, sizeof(zidstr))));
@@ -102,6 +85,7 @@ static zrtp_status_t dbCachePutRs1(zrtp_cache_t *cache, const zrtp_stringn_t* rZ
     /* If no valid record was found then this is a new record. */
     if (!zrtpIdIsValid(&remZid)) {
         zrtpIdSetValid(&remZid);
+        remZid.secureSince = (int64_t)time(NULL);
         rc = cacheDb->ops.insertRemoteZidRecord(db, remoteZid, localZid, &remZid, errString);
     }
     else
@@ -121,7 +105,7 @@ static zrtp_status_t dbCachePutMitm(zrtp_cache_t *cache, const zrtp_stringn_t* r
     remoteZidRecord_t remZid;
     uint8_t *mitm = (uint8_t*)rss->value.buffer;
     char zidstr[IDENTIFIER_LEN * 2 + 2];
-    
+
     ZRTP_CACHE_CHECK_ZID(rZid);
 
     ZRTP_LOG(3,(_ZTU_,"\tdbCachePutMitm() remote ZID: %s\n", hex2str(rZid->buffer, rZid->length, zidstr, sizeof(zidstr))));
@@ -141,12 +125,11 @@ static zrtp_status_t dbCachePutMitm(zrtp_cache_t *cache, const zrtp_stringn_t* r
     /* If no valid record was found then this is a new record. */
     if (!zrtpIdIsValid(&remZid)) {
         zrtpIdSetValid(&remZid);
+        remZid.secureSince = (int64_t)time(NULL);
         rc = cacheDb->ops.insertRemoteZidRecord(db, remoteZid, localZid, &remZid, errString);
     }
     else
         rc = cacheDb->ops.updateRemoteZidRecord(db, remoteZid, localZid, &remZid, errString);
-
-    rc = cacheDb->ops.updateRemoteZidRecord(db, remoteZid, localZid, &remZid, errString);
 
     if (rc) {
         ZRTP_LOG(3,(_ZTU_,"\tdbCachePutMitm:updateRemoteZidRecord() error: %s", errString));
@@ -162,7 +145,7 @@ static zrtp_status_t dbCacheGetRs(zrtp_cache_t *cache, const zrtp_stringn_t* rZi
     remoteZidRecord_t remZid;
     uint8_t *rs12 = (uint8_t*)rss->value.buffer;
     char zidstr[IDENTIFIER_LEN * 2 + 2];
-    
+
     ZRTP_CACHE_CHECK_ZID(rZid);
 
     ZRTP_LOG(3,(_ZTU_,"\tdbCacheGetRs() remote ZID: %s\n", hex2str(rZid->buffer, rZid->length, zidstr, sizeof(zidstr))));
@@ -175,7 +158,8 @@ static zrtp_status_t dbCacheGetRs(zrtp_cache_t *cache, const zrtp_stringn_t* rZi
         return zrtp_status_fail;
     }
     if (!zrtpIdIsValid(&remZid)) {
-        ZRTP_LOG(3,(_ZTU_,"\tdbCacheGetRs: No remote ZID record for ZID: %s\n", hex2str(rZid->buffer, rZid->length, zidstr, sizeof(zidstr))));
+        ZRTP_LOG(3,(_ZTU_,"\tdbCacheGetRs: No remote ZID record for ZID: %s\n",
+                    hex2str(rZid->buffer, rZid->length, zidstr, sizeof(zidstr))));
         return zrtp_status_fail;
     }
 
@@ -205,7 +189,7 @@ static zrtp_status_t dbCacheGetMitm(zrtp_cache_t *cache, const zrtp_stringn_t* r
     remoteZidRecord_t remZid;
     uint8_t *mitm = (uint8_t*)rss->value.buffer;
     char zidstr[IDENTIFIER_LEN * 2 + 2];
-    
+
     ZRTP_CACHE_CHECK_ZID(rZid);
 
     ZRTP_LOG(3,(_ZTU_,"\tdbCacheGetMitm() remote ZID: %s\n", hex2str(rZid->buffer, rZid->length, zidstr, sizeof(zidstr))));
@@ -218,7 +202,8 @@ static zrtp_status_t dbCacheGetMitm(zrtp_cache_t *cache, const zrtp_stringn_t* r
         return zrtp_status_fail;
     }
     if (!zrtpIdIsValid(&remZid)) {
-        ZRTP_LOG(3,(_ZTU_,"\tdbCacheGetMitm: No remote ZID record for ZID: %s\n", hex2str(rZid->buffer, rZid->length, zidstr, sizeof(zidstr))));
+        ZRTP_LOG(3,(_ZTU_,"\tdbCacheGetMitm: No remote ZID record for ZID: %s\n",
+                    hex2str(rZid->buffer, rZid->length, zidstr, sizeof(zidstr))));
         return zrtp_status_fail;
     }
 
@@ -240,7 +225,7 @@ static zrtp_status_t dbCacheSetVerified(zrtp_cache_t *cache, const zrtp_stringn_
     int rc;
     remoteZidRecord_t remZid;
     char zidstr[IDENTIFIER_LEN * 2 + 2];
-    
+
     ZRTP_CACHE_CHECK_ZID(rZid);
 
     ZRTP_LOG(3,(_ZTU_,"\tdbCacheSetVerified() remote ZID: %s\n", hex2str(rZid->buffer, rZid->length, zidstr, sizeof(zidstr))));
@@ -253,7 +238,8 @@ static zrtp_status_t dbCacheSetVerified(zrtp_cache_t *cache, const zrtp_stringn_
         return zrtp_status_fail;
     }
     if (!zrtpIdIsValid(&remZid)) {
-        ZRTP_LOG(3,(_ZTU_,"\tdbCacheSetVerified: No remote ZID record for ZID: %s\n", hex2str(rZid->buffer, rZid->length, zidstr, sizeof(zidstr))));
+        ZRTP_LOG(3,(_ZTU_,"\tdbCacheSetVerified: No remote ZID record for ZID: %s\n",
+                    hex2str(rZid->buffer, rZid->length, zidstr, sizeof(zidstr))));
         return zrtp_status_fail;
     }
     if (verified)
@@ -279,7 +265,7 @@ zrtp_status_t dbCacheGetVerified(zrtp_cache_t *cache, const zrtp_stringn_t* rZid
 
     ZRTP_CACHE_CHECK_ZID(rZid);
 
-        ZRTP_LOG(3,(_ZTU_,"\tdbCacheGetVerified() remote ZID: %s\n", hex2str(rZid->buffer, rZid->length, zidstr, sizeof(zidstr))));
+    ZRTP_LOG(3,(_ZTU_,"\tdbCacheGetVerified() remote ZID: %s\n", hex2str(rZid->buffer, rZid->length, zidstr, sizeof(zidstr))));
 
     memset(&remZid, 0, sizeof(remoteZidRecord_t));
     rc = cacheDb->ops.readRemoteZidRecord(db, remoteZid, localZid, &remZid, errString);
@@ -289,148 +275,211 @@ zrtp_status_t dbCacheGetVerified(zrtp_cache_t *cache, const zrtp_stringn_t* rZid
         return zrtp_status_fail;
     }
     if (!zrtpIdIsValid(&remZid)) {
-        ZRTP_LOG(3,(_ZTU_,"\tdbCacheSetVerified: No remote ZID record for ZID: %s\n", hex2str(rZid->buffer, rZid->length, zidstr, sizeof(zidstr))));
+        ZRTP_LOG(3,(_ZTU_,"\tdbCacheGetVerified: No remote ZID record for ZID: %s\n",
+                    hex2str(rZid->buffer, rZid->length, zidstr, sizeof(zidstr))));
         return zrtp_status_fail;
     }
     *verified = zrtpIdIsSasVerified(&remZid);
     return zrtp_status_ok;
 }
 
-#if 0
+
 
 /******************************************************************************
  * ZRTP cache extended functions
  */
 
-static zrtp_status_t zrtp_file_cache_get_since(zrtp_cache_t *cache,
-        const zrtp_stringn_t* remote_zid,
-        uint32_t* since)
+static zrtp_status_t dbCacheGetSince(zrtp_cache_t *cache, const zrtp_stringn_t* rZid, uint32_t* since)
 {
-    ZRTP_FILE_CACHE_UTIL_START;
+    ZRTP_DB_CACHE_START;
+    int rc;
+    remoteZidRecord_t remZid;
+    char zidstr[IDENTIFIER_LEN * 2 + 2];
 
-    zrtp_mutex_lock(cache_file->cache_protector);
-    new_elem = get_elem(cache_file, id, 0);
-    if (new_elem) {
-        *since = new_elem->secure_since;
+    ZRTP_CACHE_CHECK_ZID(rZid);
+
+    ZRTP_LOG(3,(_ZTU_,"\tdbCacheGetSince() remote ZID: %s\n", hex2str(rZid->buffer, rZid->length, zidstr, sizeof(zidstr))));
+
+    memset(&remZid, 0, sizeof(remoteZidRecord_t));
+    rc = cacheDb->ops.readRemoteZidRecord(db, remoteZid, localZid, &remZid, errString);
+
+    if (rc) {
+        ZRTP_LOG(3,(_ZTU_,"\tdbCacheGetSince:readRemoteZidRecord() error: %s", errString));
+        return zrtp_status_fail;
     }
-    zrtp_mutex_unlock(cache_file->cache_protector);
-
-    return (new_elem) ? zrtp_status_ok : zrtp_status_fail;
-}
-
-static zrtp_status_t zrtp_file_cache_reset_since(zrtp_cache_t *cache,
-        const zrtp_stringn_t* remote_zid)
-{
-    ZRTP_FILE_CACHE_UTIL_START;
-
-    zrtp_mutex_lock(cache_file->cache_protector);
-    new_elem = get_elem(cache_file, id, 0);
-    if (new_elem) {
-        new_elem->secure_since = (uint32_t)(zrtp_time_now()/1000);
-        new_elem->_is_dirty = 1;
+    if (!zrtpIdIsValid(&remZid)) {
+        ZRTP_LOG(3,(_ZTU_,"\tdbCacheGetSince: No remote ZID record for ZID: %s\n",
+                    hex2str(rZid->buffer, rZid->length, zidstr, sizeof(zidstr))));
+        return zrtp_status_fail;
     }
-
-    if (cache_file->config.cache_auto_store) zrtp_cache_store_to_file(cache_file);
-
-    zrtp_mutex_unlock(cache_file->cache_protector);
-
-    return (new_elem) ? zrtp_status_ok : zrtp_status_fail;
+    *since = remZid.secureSince;
+    return zrtp_status_ok;
 }
 
-static zrtp_status_t zrtp_file_cache_get_name(zrtp_cache_t *cache,
-        const zrtp_stringn_t* remote_zid,
-        zrtp_stringn_t* name)
+
+static zrtp_status_t dbCacheResetSince(zrtp_cache_t *cache, const zrtp_stringn_t* rZid)
 {
-    zrtp_status_t s = zrtp_status_fail;
+    ZRTP_DB_CACHE_START;
+    int rc;
+    remoteZidRecord_t remZid;
+    char zidstr[IDENTIFIER_LEN * 2 + 2];
 
-    ZRTP_FILE_CACHE_UTIL_START;
+    ZRTP_CACHE_CHECK_ZID(rZid);
 
-    zrtp_mutex_lock(cache_file->cache_protector);
-    do {
-        new_elem = get_elem(cache_file, id, 0);
-        if (!new_elem) {
-            s = zrtp_status_fail;
-            break;
-        }
+    ZRTP_LOG(3,(_ZTU_,"\tdbCacheResetSince() remote ZID: %s\n", hex2str(rZid->buffer, rZid->length, zidstr, sizeof(zidstr))));
 
-        name->length = new_elem->name_length;
-        zrtp_memcpy(name->buffer, new_elem->name, name->length);
-        s = zrtp_status_ok;
-    } while (0);
-    zrtp_mutex_unlock(cache_file->cache_protector);
+    memset(&remZid, 0, sizeof(remoteZidRecord_t));
+    rc = cacheDb->ops.readRemoteZidRecord(db, remoteZid, localZid, &remZid, errString);
 
-    return s;
+    if (rc) {
+        ZRTP_LOG(3,(_ZTU_,"\tdbCacheResetSince:readRemoteZidRecord() error: %s", errString));
+        return zrtp_status_fail;
+    }
+    if (!zrtpIdIsValid(&remZid)) {
+        ZRTP_LOG(3,(_ZTU_,"\tdbdbCacheResetSince: No remote ZID record for ZID: %s\n",
+                    hex2str(rZid->buffer, rZid->length, zidstr, sizeof(zidstr))));
+        return zrtp_status_fail;
+    }
+    remZid.secureSince = (int64_t)time(NULL);
+    rc = cacheDb->ops.updateRemoteZidRecord(db, remoteZid, localZid, &remZid, errString);
+
+    if (rc) {
+        ZRTP_LOG(3,(_ZTU_,"\tdbCacheResetSince:updateRemoteZidRecord() error: %s", errString));
+        return zrtp_status_fail;
+    }
+    return zrtp_status_ok;
 }
 
-static zrtp_status_t zrtp_file_cache_put_name(zrtp_cache_t *cache,
-        const zrtp_stringn_t* remote_zid,
-        const zrtp_stringn_t* name)
+
+static zrtp_status_t dbCacheGetName(zrtp_cache_t *cache, const zrtp_stringn_t* rZid, zrtp_stringn_t* name)
 {
-    zrtp_status_t s = zrtp_status_ok;
 
-    ZRTP_FILE_CACHE_UTIL_START;
+    ZRTP_DB_CACHE_START;
+    int rc;
+    zidNameRecord_t zidName;
+    char zidstr[IDENTIFIER_LEN * 2 + 2];
 
-    zrtp_mutex_lock(cache_file->cache_protector);
-    do {
-        new_elem = get_elem(cache_file, id, 0);
-        if (!new_elem) {
-            s = zrtp_status_fail;
-            break;
-        }
+    ZRTP_CACHE_CHECK_ZID(rZid);
 
-        /* Update regular cache name*/
-        new_elem->name_length = ZRTP_MIN(name->length, ZFONE_CACHE_NAME_LENGTH-1);
-        zrtp_memset(new_elem->name, 0, sizeof(new_elem->name));
-        zrtp_memcpy(new_elem->name, name->buffer, new_elem->name_length);
+    ZRTP_LOG(3,(_ZTU_,"\tdbCacheGetName() remote ZID: %s\n", hex2str(rZid->buffer, rZid->length, zidstr, sizeof(zidstr))));
 
-        new_elem->_is_dirty = 1;
-    } while (0);
-
-    if (cache_file->config.cache_auto_store) zrtp_cache_store_to_file(cache_file);
-
-    zrtp_mutex_unlock(cache_file->cache_protector);
-
-    return s;
-}
-
-static zrtp_status_t zrtp_file_cache_set_presh_counter(zrtp_cache_t *cache,
-        const zrtp_stringn_t* remote_zid,
-        uint32_t counter)
-{
-    ZRTP_FILE_CACHE_UTIL_START;
-
-    zrtp_mutex_lock(cache_file->cache_protector);
-    new_elem = get_elem(cache_file, id, 0);
-    if (new_elem) {
-        new_elem->presh_counter = counter;
-
-        new_elem->_is_dirty = 1;
+    zidName.flags = 0;
+    zidName.name = name->buffer;
+    zidName.nameLength = name->max_length;
+    rc = cacheDb->ops.readZidNameRecord(db, remoteZid, localZid, NULL, &zidName , errString);
+    name->length = zidName.nameLength;      /* set correct length in zrtp_string type */
+ 
+    if (rc) {
+        ZRTP_LOG(3,(_ZTU_,"\tdbCacheGetName:readZidName() error: %s", errString));
+        return zrtp_status_fail;
+    }
+    if ((zidName.flags & Valid) != Valid) {
+        ZRTP_LOG(3,(_ZTU_,"\tdbCacheGetName: No ZID name record for ZID: %s\n",
+                    hex2str(rZid->buffer, rZid->length, zidstr, sizeof(zidstr))));
+        return zrtp_status_fail;
     }
 
-    if (cache_file->config.cache_auto_store) zrtp_cache_store_to_file(cache_file);
-
-    zrtp_mutex_unlock(cache_file->cache_protector);
-
-    return (new_elem) ? zrtp_status_ok : zrtp_status_fail;
+    return zrtp_status_ok;
 }
 
-zrtp_status_t zrtp_file_cache_get_presh_counter(zrtp_cache_t *cache,
-        const zrtp_stringn_t* remote_zid,
-        uint32_t* counter)
+
+static zrtp_status_t dbCachePutName(zrtp_cache_t *cache, const zrtp_stringn_t* rZid, const zrtp_stringn_t* name)
 {
-    ZRTP_FILE_CACHE_UTIL_START;
 
-    zrtp_mutex_lock(cache_file->cache_protector);
-    new_elem = get_elem(cache_file, id, 0);
-    if (new_elem) {
-        *counter = new_elem->presh_counter;
+    ZRTP_DB_CACHE_START;
+    int rc;
+    zidNameRecord_t zidName;
+    char zidstr[IDENTIFIER_LEN * 2 + 2];
+
+    ZRTP_CACHE_CHECK_ZID(rZid);
+
+    ZRTP_LOG(3,(_ZTU_,"\tdbCachePutName() remote ZID: %s\n", hex2str(rZid->buffer, rZid->length, zidstr, sizeof(zidstr))));
+
+    zidName.flags = 0;
+    zidName.name = (char*)name->buffer;
+    zidName.nameLength = name->max_length;
+    rc = cacheDb->ops.readZidNameRecord(db, remoteZid, localZid, NULL, &zidName , errString);
+
+    if (rc) {
+        ZRTP_LOG(3,(_ZTU_,"\tdbCacheGetName:readZidName() error: %s", errString));
+        return zrtp_status_fail;
     }
-    zrtp_mutex_unlock(cache_file->cache_protector);
+    /* If no valid record was found then this is a new record. */
+    if ((zidName.flags & Valid) != Valid) {
+        zidName.flags = Valid;
+        rc = cacheDb->ops.insertZidNameRecord(db, remoteZid, localZid, NULL, &zidName, errString);
+    }
+    else
+        rc = cacheDb->ops.updateZidNameRecord(db, remoteZid, localZid, NULL, &zidName, errString);
 
-    return (new_elem) ? zrtp_status_ok : zrtp_status_fail;
+    if (rc) {
+        ZRTP_LOG(3,(_ZTU_,"\tdbCachePutName:updateZidName() error: %s", errString));
+        return zrtp_status_fail;
+    }
+    return zrtp_status_ok;
 }
 
-#endif
+
+static zrtp_status_t dbCacheSetPreshCounter(zrtp_cache_t *cache, const zrtp_stringn_t* rZid, uint32_t counter)
+{
+    ZRTP_DB_CACHE_START;
+    int rc;
+    remoteZidRecord_t remZid;
+    char zidstr[IDENTIFIER_LEN * 2 + 2];
+
+    ZRTP_CACHE_CHECK_ZID(rZid);
+
+    ZRTP_LOG(3,(_ZTU_,"\tdbCacheSetPreshCounter() remote ZID: %s\n", hex2str(rZid->buffer, rZid->length, zidstr, sizeof(zidstr))));
+
+    memset(&remZid, 0, sizeof(remoteZidRecord_t));
+    rc = cacheDb->ops.readRemoteZidRecord(db, remoteZid, localZid, &remZid, errString);
+
+    if (rc) {
+        ZRTP_LOG(3,(_ZTU_,"\tdbCacheSetPreshCounter:readRemoteZidRecord() error: %s", errString));
+        return zrtp_status_fail;
+    }
+    if (!zrtpIdIsValid(&remZid)) {
+        ZRTP_LOG(3,(_ZTU_,"\tdbCacheSetPreshCounter: No remote ZID record for ZID: %s\n",
+                    hex2str(rZid->buffer, rZid->length, zidstr, sizeof(zidstr))));
+        return zrtp_status_fail;
+    }
+    remZid.preshCounter = counter;
+    rc = cacheDb->ops.updateRemoteZidRecord(db, remoteZid, localZid, &remZid, errString);
+
+    if (rc) {
+        ZRTP_LOG(3,(_ZTU_,"\tdbCacheResetSince:updateRemoteZidRecord() error: %s", errString));
+        return zrtp_status_fail;
+    }
+    return zrtp_status_ok;
+}
+
+
+zrtp_status_t dbCacheGetPreshCounter(zrtp_cache_t *cache, const zrtp_stringn_t* rZid, uint32_t* counter)
+{
+    ZRTP_DB_CACHE_START;
+    int rc;
+    remoteZidRecord_t remZid;
+    char zidstr[IDENTIFIER_LEN * 2 + 2];
+
+    ZRTP_CACHE_CHECK_ZID(rZid);
+
+    ZRTP_LOG(3,(_ZTU_,"\tdbCacheGetPreshCounter() remote ZID: %s\n", hex2str(rZid->buffer, rZid->length, zidstr, sizeof(zidstr))));
+
+    memset(&remZid, 0, sizeof(remoteZidRecord_t));
+    rc = cacheDb->ops.readRemoteZidRecord(db, remoteZid, localZid, &remZid, errString);
+
+    if (rc) {
+        ZRTP_LOG(3,(_ZTU_,"\tdbCacheGetPreshCounter:readRemoteZidRecord() error: %s", errString));
+        return zrtp_status_fail;
+    }
+    if (!zrtpIdIsValid(&remZid)) {
+        ZRTP_LOG(3,(_ZTU_,"\tdbCacheGetPreshCounter: No remote ZID record for ZID: %s\n",
+                    hex2str(rZid->buffer, rZid->length, zidstr, sizeof(zidstr))));
+        return zrtp_status_fail;
+    }
+    *counter = remZid.preshCounter;
+    return zrtp_status_ok;
+}
 
 /******************************************************************************
  * Public API
@@ -452,14 +501,12 @@ zrtp_status_t zrtp_cache_db_create(zrtp_stringn_t *localZid, zrtp_cache_db_confi
     newCache->super_.op.set_verified = dbCacheSetVerified;
     newCache->super_.op.get_verified = dbCacheGetVerified;
 
-#if 0
-    newCache->super_.op_ext.get_name = &zrtp_db_cache_get_name;
-    newCache->super_.op_ext.put_name = &zrtp_db_cache_put_name;
-    newCache->super_.op_ext.get_secure_since = &zrtp_db_cache_get_since;
-    newCache->super_.op_ext.reset_secure_since = &zrtp_db_cache_reset_since;
-    newCache->super_.op_ext.get_presh_counter = &zrtp_db_cache_get_presh_counter;
-    newCache->super_.op_ext.set_presh_counter = &zrtp_db_cache_set_presh_counter;
-#endif 
+    newCache->super_.op_ext.get_name =           dbCacheGetName;
+    newCache->super_.op_ext.put_name =           dbCachePutName;
+    newCache->super_.op_ext.get_secure_since =   dbCacheGetSince;
+    newCache->super_.op_ext.reset_secure_since = dbCacheResetSince;
+    newCache->super_.op_ext.get_presh_counter =  dbCacheGetPreshCounter;
+    newCache->super_.op_ext.set_presh_counter =  dbCacheSetPreshCounter;
 
     getDbCacheOps(&newCache->ops);
 
