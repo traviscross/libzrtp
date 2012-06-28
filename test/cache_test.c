@@ -3,8 +3,8 @@
  * Copyright (c) 2006-2009 Philip R. Zimmermann.  All rights reserved.
  * Contact: http://philzimmermann.com
  * For licensing and other legal details, see the file zrtp_legal.c.
- * 
- * Viktor Krykun <v.krikun at zfoneproject.com> 
+ *
+ * Viktor Krykun <v.krikun at zfoneproject.com>
  */
 
 #include <stdarg.h>
@@ -21,7 +21,7 @@
 #if defined ZRTP_HAVE_SQLITE
 #include "zrtp_cache_db.h"
 #include "zrtp_cache_db_backend.h"
-#endif 
+#endif
 
 #define TEST_CACHE_PATH		"/tmp/zrtp_cache_test.dat"
 
@@ -56,78 +56,78 @@ static void init_rs_secret_(zrtp_shared_secret_t *sec, unsigned char val_fill);
 static unsigned g_cache_auto_store = 0;
 
 static void cache_setup_() {
-	zrtp_status_t status;
+    zrtp_status_t status;
 
-//	secerets_to_delete_count = 0;
+    //	secerets_to_delete_count = 0;
 
-	init_rs_secret_(&rs_my4a, 'a'); init_rs_secret_(&rs_my4b, 'b'); init_rs_secret_(&rs_my4c, 'c');
-	init_rs_secret_(&rs_my4mitm1, '1'); init_rs_secret_(&rs_my4mitm2, '2');
+    init_rs_secret_(&rs_my4a, 'a'); init_rs_secret_(&rs_my4b, 'b'); init_rs_secret_(&rs_my4c, 'c');
+    init_rs_secret_(&rs_my4mitm1, '1'); init_rs_secret_(&rs_my4mitm2, '2');
 
-	init_rs_secret_(&rs_my4a_r, 0); init_rs_secret_(&rs_my4b_r, 0); init_rs_secret_(&rs_my4c_r, 0);
-	init_rs_secret_(&rs_my4mitm1_r, 0); init_rs_secret_(&rs_my4mitm2_r, 0);
+    init_rs_secret_(&rs_my4a_r, 0); init_rs_secret_(&rs_my4b_r, 0); init_rs_secret_(&rs_my4c_r, 0);
+    init_rs_secret_(&rs_my4mitm1_r, 0); init_rs_secret_(&rs_my4mitm2_r, 0);
 
-	status = zrtp_cache_put(g_cache, ZSTR_GV(zid_a), &rs_my4a);
-	assert_int_equal(status, zrtp_status_ok);
-	status = zrtp_cache_put(g_cache, ZSTR_GV(zid_b), &rs_my4b);
-	assert_int_equal(status, zrtp_status_ok);
-	status = zrtp_cache_put(g_cache, ZSTR_GV(zid_c), &rs_my4c);
-	assert_int_equal(status, zrtp_status_ok);
+    status = zrtp_cache_put(g_cache, ZSTR_GV(zid_a), &rs_my4a);
+    assert_int_equal(status, zrtp_status_ok);
+    status = zrtp_cache_put(g_cache, ZSTR_GV(zid_b), &rs_my4b);
+    assert_int_equal(status, zrtp_status_ok);
+    status = zrtp_cache_put(g_cache, ZSTR_GV(zid_c), &rs_my4c);
+    assert_int_equal(status, zrtp_status_ok);
 
-	status = zrtp_cache_put_mitm(g_cache, ZSTR_GV(zid_mitm1), &rs_my4mitm1);
-	assert_int_equal(status, zrtp_status_ok);
-	status = zrtp_cache_put_mitm(g_cache, ZSTR_GV(zid_mitm2), &rs_my4mitm2);
-	assert_int_equal(status, zrtp_status_ok);
+    status = zrtp_cache_put_mitm(g_cache, ZSTR_GV(zid_mitm1), &rs_my4mitm1);
+    assert_int_equal(status, zrtp_status_ok);
+    status = zrtp_cache_put_mitm(g_cache, ZSTR_GV(zid_mitm2), &rs_my4mitm2);
+    assert_int_equal(status, zrtp_status_ok);
 
-	status = zrtp_cache_put(g_cache, ZSTR_GV(zid_c), &rs_my4c);
-	assert_int_equal(status, zrtp_status_ok);
+    status = zrtp_cache_put(g_cache, ZSTR_GV(zid_c), &rs_my4c);
+    assert_int_equal(status, zrtp_status_ok);
 }
 
 static void cache_setup_file() {
-	zrtp_status_t status;
+    zrtp_status_t status;
 
-	/* Delete cache file from previous test if it exists. */
-	remove(TEST_CACHE_PATH);
+    /* Delete cache file from previous test if it exists. */
+    remove(TEST_CACHE_PATH);
 
-	/* Initialize File cache */
-	g_file_config.cache_auto_store = g_cache_auto_store;
-	strcpy(g_file_config.cache_path, TEST_CACHE_PATH);
+    /* Initialize File cache */
+    g_file_config.cache_auto_store = g_cache_auto_store;
+    strcpy(g_file_config.cache_path, TEST_CACHE_PATH);
 
-#if defined ZRTP_HAVE_SQLITE
+    #if defined ZRTP_HAVE_SQLITE
     strcpy(g_db_config.cache_path, TEST_CACHE_PATH);
-#endif
+    #endif
 
     if (!sqliteTest)
         status = zrtp_cache_file_create(ZSTR_GV(zid_my), &g_file_config, (zrtp_cache_file_t **)&g_cache);
     else
         status = zrtp_cache_db_create(ZSTR_GV(zid_my), &g_db_config, (zrtp_cache_db_t **)&g_cache);
 
-	assert_int_equal(zrtp_status_ok, status);
-	assert_non_null(g_cache);
+    assert_int_equal(zrtp_status_ok, status);
+    assert_non_null(g_cache);
 
-	printf("==> Add few test entries.\n");
-	cache_setup_();
-	
-	printf("==> Close the cache.\n");
+    printf("==> Add few test entries.\n");
+    cache_setup_();
+
+    printf("==> Close the cache.\n");
     if (!sqliteTest)
         status = zrtp_cache_file_destroy((zrtp_cache_file_t *)g_cache);
     else
         status = zrtp_cache_db_destroy(g_cache);
 
-	assert_int_equal(zrtp_status_ok, status);
-	
-	printf("==> Open just prepared cache file.\n");
+    assert_int_equal(zrtp_status_ok, status);
+
+    printf("==> Open just prepared cache file.\n");
     if (!sqliteTest)
         status = zrtp_cache_file_create(ZSTR_GV(zid_my), &g_file_config, (zrtp_cache_file_t **)&g_cache);
     else
         status = zrtp_cache_db_create(ZSTR_GV(zid_my), &g_db_config, (zrtp_cache_db_t **)&g_cache);
-	assert_int_equal(zrtp_status_ok, status);
-	assert_non_null(g_cache);
+    assert_int_equal(zrtp_status_ok, status);
+    assert_non_null(g_cache);
 
-	printf("==> Ready for the test!.\n");
+    printf("==> Ready for the test!.\n");
 }
 
 void cache_teardown_file() {
-	if (g_cache) {
+    if (g_cache) {
         if (!sqliteTest)
             zrtp_cache_file_destroy((zrtp_cache_file_t *)g_cache);
         else
@@ -138,9 +138,9 @@ void cache_teardown_file() {
 /*
  * Simply init ZRTP cache with empty or non-existing filer and close it.
  * The app should not crash and trigger no errors.
-*/
-void cache_init_store_empty_test() {	
-	printf("nop... just shut down the cache with no modifications\n");
+ */
+void cache_init_store_empty_test() {
+    printf("nop... just shut down the cache with no modifications\n");
 }
 
 /*
@@ -148,74 +148,74 @@ void cache_init_store_empty_test() {
  * all the entries were restored successfully.
  */
 void cache_add2empty_test() {
-	zrtp_status_t status;	
-	
-	/* Now, let's open the cache again and check if all the previously added values were restored successfully */
-	printf("==> And open it again, it should contain all the stored values.\n");
-	
-	status = zrtp_cache_get(g_cache, ZSTR_GV(zid_a), &rs_my4a_r, 0);
-	assert_int_equal(status, zrtp_status_ok);
+    zrtp_status_t status;
+
+    /* Now, let's open the cache again and check if all the previously added values were restored successfully */
+    printf("==> And open it again, it should contain all the stored values.\n");
+
+    status = zrtp_cache_get(g_cache, ZSTR_GV(zid_a), &rs_my4a_r, 0);
+    assert_int_equal(status, zrtp_status_ok);
     printf("a: %d, a_r: %d\n", rs_my4a.value.length, rs_my4a_r.value.length);
-	assert_false(zrtp_zstrcmp(ZSTR_GV(rs_my4a_r.value), ZSTR_GV(rs_my4a.value)));
-	
-	status = zrtp_cache_get(g_cache, ZSTR_GV(zid_b), &rs_my4b_r, 0);
-	assert_int_equal(status, zrtp_status_ok);
-	assert_false(zrtp_zstrcmp(ZSTR_GV(rs_my4b_r.value), ZSTR_GV(rs_my4b.value)));
-		
-	status = zrtp_cache_get_mitm(g_cache, ZSTR_GV(zid_mitm1), &rs_my4mitm1_r);
-	assert_int_equal(status, zrtp_status_ok);
-	assert_false(zrtp_zstrcmp(ZSTR_GV(rs_my4mitm1_r.value), ZSTR_GV(rs_my4mitm1.value)));
-	
-	status = zrtp_cache_get_mitm(g_cache, ZSTR_GV(zid_mitm2), &rs_my4mitm2_r);
-	assert_int_equal(status, zrtp_status_ok);
-	assert_false(zrtp_zstrcmp(ZSTR_GV(rs_my4mitm2_r.value), ZSTR_GV(rs_my4mitm2.value)));
+    assert_false(zrtp_zstrcmp(ZSTR_GV(rs_my4a_r.value), ZSTR_GV(rs_my4a.value)));
+
+    status = zrtp_cache_get(g_cache, ZSTR_GV(zid_b), &rs_my4b_r, 0);
+    assert_int_equal(status, zrtp_status_ok);
+    assert_false(zrtp_zstrcmp(ZSTR_GV(rs_my4b_r.value), ZSTR_GV(rs_my4b.value)));
+
+    status = zrtp_cache_get_mitm(g_cache, ZSTR_GV(zid_mitm1), &rs_my4mitm1_r);
+    assert_int_equal(status, zrtp_status_ok);
+    assert_false(zrtp_zstrcmp(ZSTR_GV(rs_my4mitm1_r.value), ZSTR_GV(rs_my4mitm1.value)));
+
+    status = zrtp_cache_get_mitm(g_cache, ZSTR_GV(zid_mitm2), &rs_my4mitm2_r);
+    assert_int_equal(status, zrtp_status_ok);
+    assert_false(zrtp_zstrcmp(ZSTR_GV(rs_my4mitm2_r.value), ZSTR_GV(rs_my4mitm2.value)));
 }
 
 /*
  * Test if cache properly handles Open-Close-Open with now no changes to the cache values.
  */
 void cache_save_unchanged_test() {
-	zrtp_status_t status;
-	
-	/* Now, let's open the cache again and check if all the previously added values were restored successfully */
-	printf("==> Now let's Open the cache and Close it right after, make no changes.\n");
-	
+    zrtp_status_t status;
+
+    /* Now, let's open the cache again and check if all the previously added values were restored successfully */
+    printf("==> Now let's Open the cache and Close it right after, make no changes.\n");
+
     if (!sqliteTest)
         status = zrtp_cache_file_destroy((zrtp_cache_file_t *)g_cache);
     else
         status = zrtp_cache_db_destroy(g_cache);
 
-	assert_int_equal(zrtp_status_ok, status);
+    assert_int_equal(zrtp_status_ok, status);
 
-	/*
-	 * TEST: now let's store the cache making no changes to it.
-	 * After opening it should include all the secrets untouched.
-	 */
-	
-	printf("==> And the cache again, it should contain all the stored values.\n");
-	
+    /*
+     * TEST: now let's store the cache making no changes to it.
+     * After opening it should include all the secrets untouched.
+     */
+
+    printf("==> And the cache again, it should contain all the stored values.\n");
+
     if (!sqliteTest)
         status = zrtp_cache_file_create(ZSTR_GV(zid_my), &g_file_config, (zrtp_cache_file_t **)&g_cache);
     else
         status = zrtp_cache_db_create(ZSTR_GV(zid_my), &g_db_config, (zrtp_cache_db_t **)&g_cache);
 
-	assert_int_equal(zrtp_status_ok, status);
-	
-	status = zrtp_cache_get(g_cache, ZSTR_GV(zid_a), &rs_my4a_r, 0);
-	assert_int_equal(status, zrtp_status_ok);
-	assert_false(zrtp_zstrcmp(ZSTR_GV(rs_my4a_r.value), ZSTR_GV(rs_my4a.value)));
-	
-	status = zrtp_cache_get(g_cache, ZSTR_GV(zid_b), &rs_my4b_r, 0);
-	assert_int_equal(status, zrtp_status_ok);
-	assert_false(zrtp_zstrcmp(ZSTR_GV(rs_my4b_r.value), ZSTR_GV(rs_my4b.value)));
-		
-	status = zrtp_cache_get_mitm(g_cache, ZSTR_GV(zid_mitm1), &rs_my4mitm1_r);
-	assert_int_equal(status, zrtp_status_ok);
-	assert_false(zrtp_zstrcmp(ZSTR_GV(rs_my4mitm1_r.value), ZSTR_GV(rs_my4mitm1.value)));
-	
-	status = zrtp_cache_get_mitm(g_cache, ZSTR_GV(zid_mitm2), &rs_my4mitm2_r);
-	assert_int_equal(status, zrtp_status_ok);
-	assert_false(zrtp_zstrcmp(ZSTR_GV(rs_my4mitm2_r.value), ZSTR_GV(rs_my4mitm2.value)));
+    assert_int_equal(zrtp_status_ok, status);
+
+    status = zrtp_cache_get(g_cache, ZSTR_GV(zid_a), &rs_my4a_r, 0);
+    assert_int_equal(status, zrtp_status_ok);
+    assert_false(zrtp_zstrcmp(ZSTR_GV(rs_my4a_r.value), ZSTR_GV(rs_my4a.value)));
+
+    status = zrtp_cache_get(g_cache, ZSTR_GV(zid_b), &rs_my4b_r, 0);
+    assert_int_equal(status, zrtp_status_ok);
+    assert_false(zrtp_zstrcmp(ZSTR_GV(rs_my4b_r.value), ZSTR_GV(rs_my4b.value)));
+
+    status = zrtp_cache_get_mitm(g_cache, ZSTR_GV(zid_mitm1), &rs_my4mitm1_r);
+    assert_int_equal(status, zrtp_status_ok);
+    assert_false(zrtp_zstrcmp(ZSTR_GV(rs_my4mitm1_r.value), ZSTR_GV(rs_my4mitm1.value)));
+
+    status = zrtp_cache_get_mitm(g_cache, ZSTR_GV(zid_mitm2), &rs_my4mitm2_r);
+    assert_int_equal(status, zrtp_status_ok);
+    assert_false(zrtp_zstrcmp(ZSTR_GV(rs_my4mitm2_r.value), ZSTR_GV(rs_my4mitm2.value)));
 }
 
 /*
@@ -223,93 +223,93 @@ void cache_save_unchanged_test() {
  * flush to the disk modified values only and leave rest of the items untouched.
  */
 void cache_modify_and_save_test() {
-	zrtp_status_t status;
-	
-	printf("==> And open it again, it should contain all the stored values.\n");
-	
-	/*
-	 * Now, let's modify just few entries and check of the fill will be stored.
-	 *
-	 * We will change RS secrets rs_my4b, rs_my4c and rs_my4mitm1 while leaving
-	 * rs_my4a and rs_my4mitm2 untouched.
-	 */
-		
-	init_rs_secret_(&rs_my4b, 'x'); init_rs_secret_(&rs_my4c, 'y');
-	init_rs_secret_(&rs_my4mitm1, 'z');
-	
-	printf("==> Now we gonna to update few cache entries and flush the cache mack to the file.\n");
-	
-	status = zrtp_cache_put(g_cache, ZSTR_GV(zid_b), &rs_my4b);
-	assert_int_equal(status, zrtp_status_ok);
-	status = zrtp_cache_put(g_cache, ZSTR_GV(zid_c), &rs_my4c);
-	assert_int_equal(status, zrtp_status_ok);	
-	status = zrtp_cache_put_mitm(g_cache, ZSTR_GV(zid_mitm1), &rs_my4mitm1);
-	assert_int_equal(status, zrtp_status_ok);
-		
-	/* Flush the cache and open it again. */
+    zrtp_status_t status;
+
+    printf("==> And open it again, it should contain all the stored values.\n");
+
+    /*
+     * Now, let's modify just few entries and check of the fill will be stored.
+     *
+     * We will change RS secrets rs_my4b, rs_my4c and rs_my4mitm1 while leaving
+     * rs_my4a and rs_my4mitm2 untouched.
+     */
+
+    init_rs_secret_(&rs_my4b, 'x'); init_rs_secret_(&rs_my4c, 'y');
+    init_rs_secret_(&rs_my4mitm1, 'z');
+
+    printf("==> Now we gonna to update few cache entries and flush the cache mack to the file.\n");
+
+    status = zrtp_cache_put(g_cache, ZSTR_GV(zid_b), &rs_my4b);
+    assert_int_equal(status, zrtp_status_ok);
+    status = zrtp_cache_put(g_cache, ZSTR_GV(zid_c), &rs_my4c);
+    assert_int_equal(status, zrtp_status_ok);
+    status = zrtp_cache_put_mitm(g_cache, ZSTR_GV(zid_mitm1), &rs_my4mitm1);
+    assert_int_equal(status, zrtp_status_ok);
+
+    /* Flush the cache and open it again. */
     if (!sqliteTest)
         status = zrtp_cache_file_destroy((zrtp_cache_file_t *)g_cache);
     else
         status = zrtp_cache_db_destroy(g_cache);
 
-	assert_int_equal(zrtp_status_ok, status);
-	
-	printf("==> Open the cache and make sure all our prev. modifications saved properly.\n");
-	
+    assert_int_equal(zrtp_status_ok, status);
+
+    printf("==> Open the cache and make sure all our prev. modifications saved properly.\n");
+
     if (!sqliteTest)
         status = zrtp_cache_file_create(ZSTR_GV(zid_my), &g_file_config, (zrtp_cache_file_t **)&g_cache);
     else
         status = zrtp_cache_db_create(ZSTR_GV(zid_my), &g_db_config, (zrtp_cache_db_t **)&g_cache);
 
-	assert_int_equal(zrtp_status_ok, status);
-	
-	/* Let's check if all our modifications are in place. */
-	status = zrtp_cache_get(g_cache, ZSTR_GV(zid_a), &rs_my4a_r, 0);
-	assert_int_equal(status, zrtp_status_ok);
-	assert_false(zrtp_zstrcmp(ZSTR_GV(rs_my4a_r.value), ZSTR_GV(rs_my4a.value)));
-	
-	status = zrtp_cache_get(g_cache, ZSTR_GV(zid_b), &rs_my4b_r, 0);
+    assert_int_equal(zrtp_status_ok, status);
+
+    /* Let's check if all our modifications are in place. */
+    status = zrtp_cache_get(g_cache, ZSTR_GV(zid_a), &rs_my4a_r, 0);
     assert_int_equal(status, zrtp_status_ok);
-	assert_false(zrtp_zstrcmp(ZSTR_GV(rs_my4b_r.value), ZSTR_GV(rs_my4b.value)));
-	
-	status = zrtp_cache_get(g_cache, ZSTR_GV(zid_c), &rs_my4c_r, 0);
-	assert_int_equal(status, zrtp_status_ok);
-	assert_false(zrtp_zstrcmp(ZSTR_GV(rs_my4c_r.value), ZSTR_GV(rs_my4c.value)));
-	
-	status = zrtp_cache_get_mitm(g_cache, ZSTR_GV(zid_mitm1), &rs_my4mitm1_r);
-	assert_int_equal(status, zrtp_status_ok);
-	assert_false(zrtp_zstrcmp(ZSTR_GV(rs_my4mitm1_r.value), ZSTR_GV(rs_my4mitm1.value)));
-	
-	status = zrtp_cache_get_mitm(g_cache, ZSTR_GV(zid_mitm2), &rs_my4mitm2_r);
-	assert_int_equal(status, zrtp_status_ok);
-	assert_false(zrtp_zstrcmp(ZSTR_GV(rs_my4mitm2_r.value), ZSTR_GV(rs_my4mitm2.value)));
+    assert_false(zrtp_zstrcmp(ZSTR_GV(rs_my4a_r.value), ZSTR_GV(rs_my4a.value)));
+
+    status = zrtp_cache_get(g_cache, ZSTR_GV(zid_b), &rs_my4b_r, 0);
+    assert_int_equal(status, zrtp_status_ok);
+    assert_false(zrtp_zstrcmp(ZSTR_GV(rs_my4b_r.value), ZSTR_GV(rs_my4b.value)));
+
+    status = zrtp_cache_get(g_cache, ZSTR_GV(zid_c), &rs_my4c_r, 0);
+    assert_int_equal(status, zrtp_status_ok);
+    assert_false(zrtp_zstrcmp(ZSTR_GV(rs_my4c_r.value), ZSTR_GV(rs_my4c.value)));
+
+    status = zrtp_cache_get_mitm(g_cache, ZSTR_GV(zid_mitm1), &rs_my4mitm1_r);
+    assert_int_equal(status, zrtp_status_ok);
+    assert_false(zrtp_zstrcmp(ZSTR_GV(rs_my4mitm1_r.value), ZSTR_GV(rs_my4mitm1.value)));
+
+    status = zrtp_cache_get_mitm(g_cache, ZSTR_GV(zid_mitm2), &rs_my4mitm2_r);
+    assert_int_equal(status, zrtp_status_ok);
+    assert_false(zrtp_zstrcmp(ZSTR_GV(rs_my4mitm2_r.value), ZSTR_GV(rs_my4mitm2.value)));
 }
 
-int main(int argc, char *argv[]) 
+int main(int argc, char *argv[])
 {
 
-#if defined ZRTP_HAVE_SQLITE
+    #if defined ZRTP_HAVE_SQLITE
     if (argc > 1) {
         char *argp = argv[1];
         switch (*argp) {
-        case 's':
-            printf("Test SQLite DB backend.\n");
-            sqliteTest = 1;
-            break;
+            case 's':
+                printf("Test SQLite DB backend.\n");
+                sqliteTest = 1;
+                break;
 
-        default:
-            break;
+            default:
+                break;
         }
     }
-#endif
-	const UnitTest tests[] = {
-		unit_test_setup_teardown(cache_init_store_empty_test, cache_setup_file, cache_teardown_file),
+    #endif
+    const UnitTest tests[] = {
+        unit_test_setup_teardown(cache_init_store_empty_test, cache_setup_file, cache_teardown_file),
         unit_test_setup_teardown(cache_add2empty_test, cache_setup_file, cache_teardown_file),
-		unit_test_setup_teardown(cache_save_unchanged_test, cache_setup_file, cache_teardown_file),
-		unit_test_setup_teardown(cache_modify_and_save_test, cache_setup_file, cache_teardown_file),
-  	};
+        unit_test_setup_teardown(cache_save_unchanged_test, cache_setup_file, cache_teardown_file),
+        unit_test_setup_teardown(cache_modify_and_save_test, cache_setup_file, cache_teardown_file),
+    };
 
-	return run_tests(tests);
+    return run_tests(tests);
 }
 
 
@@ -318,14 +318,14 @@ int main(int argc, char *argv[])
  *****************************************************************************/
 
 static void init_rs_secret_(zrtp_shared_secret_t *sec, unsigned char val_fill) {
-	
-	char val_buff[ZRTP_HASH_SIZE];
-	zrtp_memset(val_buff, val_fill, sizeof(val_buff));
-	
-	ZSTR_SET_EMPTY(sec->value);
-	zrtp_zstrncpyc(ZSTR_GV(sec->value), val_buff, ZRTP_HASH_SIZE);
-	
-	sec->_cachedflag = 0;
-	sec->ttl = 0;
-	sec->lastused_at = 0;
+
+    char val_buff[ZRTP_HASH_SIZE];
+    zrtp_memset(val_buff, val_fill, sizeof(val_buff));
+
+    ZSTR_SET_EMPTY(sec->value);
+    zrtp_zstrncpyc(ZSTR_GV(sec->value), val_buff, ZRTP_HASH_SIZE);
+
+    sec->_cachedflag = 0;
+    sec->ttl = 0;
+    sec->lastused_at = 0;
 }
