@@ -25,6 +25,7 @@ libzrtp_include_HEADERS = \
 					$(top_srcdir)/include/zrtp_log.h \
 					$(top_srcdir)/include/zrtp_pbx.h \
 					$(top_srcdir)/include/zrtp_protocol.h \
+					$(top_srcdir)/include/zrtp_sdes.h \
 					$(top_srcdir)/include/zrtp_srtp.h \
 					$(top_srcdir)/include/zrtp_srtp_builtin.h \
 					$(top_srcdir)/include/zrtp_string.h \
@@ -84,6 +85,7 @@ libzrtp_a_SOURCES = $(top_srcdir)/src/zrtp.c \
 					$(top_srcdir)/src/zrtp_protocol.c \
 					$(top_srcdir)/src/zrtp_responder.c \
 					$(top_srcdir)/src/zrtp_rng.c \
+					$(top_srcdir)/src/zrtp_sdes.c \
 					$(top_srcdir)/src/zrtp_srtp_builtin.c \
 					$(top_srcdir)/src/zrtp_string.c \
 					$(top_srcdir)/src/zrtp_utils.c \
