@@ -28,6 +28,12 @@
 
 #define TTL 3600
 
+/*
+ * NOTE: if sqliteTest is true then skip some assertion because the file based
+ * implementation does not store lastused_at for MitM records.
+ */
+
+
 static int sqliteTest = 0;
 
 static zrtp_cache_t *g_cache = NULL;
@@ -187,12 +193,14 @@ void cache_add2empty_test() {
 
     status = zrtp_cache_get_mitm(g_cache, ZSTR_GV(zid_mitm1), &rs_my4mitm1_r);
     assert_int_equal(status, zrtp_status_ok);
-    assert_int_equal(rs_my4mitm1_r.lastused_at, rsTime);
+    if (sqliteTest)
+        assert_int_equal(rs_my4mitm1_r.lastused_at, rsTime);
     assert_false(zrtp_zstrcmp(ZSTR_GV(rs_my4mitm1_r.value), ZSTR_GV(rs_my4mitm1.value)));
 
     status = zrtp_cache_get_mitm(g_cache, ZSTR_GV(zid_mitm2), &rs_my4mitm2_r);
     assert_int_equal(status, zrtp_status_ok);
-    assert_int_equal(rs_my4mitm2_r.lastused_at, rsTime);
+    if (sqliteTest)
+        assert_int_equal(rs_my4mitm2_r.lastused_at, rsTime);
     assert_false(zrtp_zstrcmp(ZSTR_GV(rs_my4mitm2_r.value), ZSTR_GV(rs_my4mitm2.value)));
 
     status = zrtp_cache_get_name(g_cache, ZSTR_GV(zid_a), ZSTR_GV(zid_a_name_r));
@@ -324,12 +332,14 @@ void cache_modify_and_save_test() {
 
     status = zrtp_cache_get_mitm(g_cache, ZSTR_GV(zid_mitm1), &rs_my4mitm1_r);
     assert_int_equal(status, zrtp_status_ok);
-    assert_int_equal(rs_my4mitm1_r.lastused_at, rsTime);
+    if (sqliteTest)
+        assert_int_equal(rs_my4mitm1_r.lastused_at, rsTime);
     assert_false(zrtp_zstrcmp(ZSTR_GV(rs_my4mitm1_r.value), ZSTR_GV(rs_my4mitm1.value)));
 
     status = zrtp_cache_get_mitm(g_cache, ZSTR_GV(zid_mitm2), &rs_my4mitm2_r);
     assert_int_equal(status, zrtp_status_ok);
-    assert_int_equal(rs_my4mitm2_r.lastused_at, rsTime-10);
+    if (sqliteTest)
+        assert_int_equal(rs_my4mitm2_r.lastused_at, rsTime-10);
     assert_false(zrtp_zstrcmp(ZSTR_GV(rs_my4mitm2_r.value), ZSTR_GV(rs_my4mitm2.value)));
 
     status = zrtp_cache_get_name(g_cache, ZSTR_GV(zid_a), ZSTR_GV(zid_a_name_r));
