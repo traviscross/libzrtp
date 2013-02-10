@@ -36,9 +36,7 @@
 #include "zrtp_version.h"
 #include "zrtp_cache.h"
 #include "zrtp_cache_file.h"
-#if (defined(ZRTP_ENABLE_EC) && (ZRTP_ENABLE_EC == 1))
 #include "zrtp_ec.h"
-#endif
 
 #if defined ZRTP_HAVE_SQLITE
 #include "zrtp_cache_db.h"

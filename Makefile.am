@@ -15,6 +15,7 @@ libzrtp_include_HEADERS = \
 					$(top_srcdir)/include/zrtp_config_user.h \
 					$(top_srcdir)/include/zrtp_config_unix.h \
 					$(top_srcdir)/include/zrtp_crypto.h \
+					$(top_srcdir)/include/zrtp_ec.h \
 					$(top_srcdir)/include/zrtp_engine.h \
 					$(top_srcdir)/include/zrtp_error.h \
 					$(top_srcdir)/include/zrtp_iface.h \
@@ -42,10 +43,6 @@ libzrtp_include_HEADERS = \
 					$(top_srcdir)/third_party/bgaes/sha1.h \
 					$(top_srcdir)/third_party/bgaes/sha2.h
 
-if ZRTP_BUILD_ENTERPRISE
-libzrtp_include_HEADERS += $(top_srcdir)/include/zrtp_ec.h
-endif
-
 if ZRTP_WITH_SQLITE
 libzrtp_include_HEADERS += $(top_srcdir)/include/zrtp_cache_db.h \
 						   $(top_srcdir)/include/zrtp_cache_db_backend.h \
@@ -70,6 +67,8 @@ libzrtp_a_SOURCES = $(top_srcdir)/src/zrtp.c \
 					$(top_srcdir)/src/zrtp_crc.c \
 					$(top_srcdir)/src/zrtp_crypto_aes.c \
 					$(top_srcdir)/src/zrtp_crypto_atl.c \
+					$(top_srcdir)/src/zrtp_crypto_ec.c \
+					$(top_srcdir)/src/zrtp_crypto_ecdh.c \
 					$(top_srcdir)/src/zrtp_crypto_hash.c \
 					$(top_srcdir)/src/zrtp_crypto_pk.c \
 					$(top_srcdir)/src/zrtp_crypto_sas.c \
@@ -99,10 +98,6 @@ libzrtp_a_SOURCES = $(top_srcdir)/src/zrtp.c \
 					$(top_srcdir)/third_party/bgaes/sha2.c\
 					\
 					$(top_srcdir)/src/zrtp_engine_driven.c
-if ZRTP_BUILD_ENTERPRISE
-libzrtp_a_SOURCES +=$(top_srcdir)/src/zrtp_crypto_ec.c \
-					$(top_srcdir)/src/zrtp_crypto_ecdh.c
-endif
 
 if ZRTP_WITH_SQLITE
 libzrtp_a_SOURCES +=$(top_srcdir)/src/zrtp_cache_db.c \
