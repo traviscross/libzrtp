@@ -99,6 +99,7 @@ AM_CONDITIONAL(ZRTP_WITH_SQLITE, [test "x$with_sqlite" = "xyes"])
 #
 # Documentation
 #
+AM_CONDITIONAL([HAVE_DOXYGEN], [false])
 AC_CHECK_PROGS([DOXYGEN], [doxygen])
 if test -z "$DOXYGEN"; then
   AC_MSG_WARN([Doxygen not found - continuing without Doxygen support])
