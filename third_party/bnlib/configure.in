@@ -93,7 +93,7 @@ rm -f conftest*
   # GCC's support library (-lgcc).  Do a link, to relocatable object form,
   # with just -lgcc.  If it's not GCC, do the normal -c thing.
   # These substitutions are used in the Makefile to force that behaviour.
-  GCCMAGIC1='-Wl,-r -nostdlib'
+  GCCMAGIC1='-r -nostdlib'
   GCCMAGIC2=-lgcc
 else
   GCCMAGIC1=-c
