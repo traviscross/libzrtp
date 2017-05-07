@@ -868,7 +868,7 @@ zrtp_status_t zrtp_profile_check(const zrtp_profile_t* profile, zrtp_global_t* z
     }
 
     if (0 > zrtp_profile_find(profile, ZRTP_CC_ATL, ZRTP_ATL_HS80)) {
-	ZRTP_LOG(1, (ZTU,"WARNING! can't find '80 ' in profile.\n"));
+	ZRTP_LOG(1, (_ZTU_,"WARNING! can't find '80 ' in profile.\n"));
 	return zrtp_status_fail;
     }
 
